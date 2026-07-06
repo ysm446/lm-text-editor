@@ -1,11 +1,11 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 07:14
+更新日時: 2026-07-07 07:23
 
 ## 現在の状態
 
-**フェーズ 0（準備）**。仕様・計画ドキュメントと実行環境の配置まで完了。アプリのコードは未着手。
+**フェーズ 1（エディタ基盤）進行中**。Electron + Vite + React + TypeScript の雛形と TipTap エディタの基本表示まで完了。次はワークスペース / サイドバーと SQLite 永続化。
 
 ## 完了済み
 
@@ -19,11 +19,18 @@
   - `models/Ornith-1.0-9B-GGUF/` — ornith 9B（Q4_K_M）。
   - `models/embeddings/` — Ruri v3 310m キャッシュ。
 
+- 2026-07-07 フェーズ 1 着手:
+  - Electron + Vite + React + TypeScript 雛形（vite-plugin-electron。`electron/main.ts` / `electron/preload.ts` / `src/`）。
+  - TipTap v3 エディタ基本表示（StarterKit + tiptap-markdown 0.9）。
+  - `npm run build`（型検査 + 3 バンドル）と Electron 実起動を確認。
+  - Python venv（`.venv`, Python 3.13.11）作成。
+
 ## 未完了（次にやること）
 
-- フェーズ 1: エディタ基盤（詳細は [plan.md](plan.md) のチェックリスト参照）。
-  - 最初の一歩: Electron + Vite + React + TypeScript の雛形作成と `package.json` 整備。
-- 初回コミット（`.gitignore` / `AGENTS.md` / `CLAUDE.md` / `docs/` はまだ未コミット）。
+- フェーズ 1 の残り（詳細は [plan.md](plan.md) のチェックリスト参照）:
+  - 画像挿入（ワークスペースディレクトリ保存 + `asset` 登録）。
+  - ワークスペース / 文書管理（サイドバー、DocTree）。
+  - SQLite 永続化と FastAPI 雛形（CRUD API）。venv は作成済み、パッケージ導入から。
 
 ## 注意点
 

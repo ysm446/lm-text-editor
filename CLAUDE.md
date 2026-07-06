@@ -61,6 +61,14 @@ AGENTS.md の「読み取り手順」「書き込み手順」にある PowerShel
 Claude Code では組み込みの Read / Edit / Write ツールをそのまま使う（UTF-8 no BOM で書き込まれる）。
 ファイル検索は Glob / Grep（`rg` 相当）を使う。
 
+## 開発コマンド・環境
+
+- `npm run dev` — Vite 開発サーバ + Electron 起動（vite-plugin-electron）。
+- `npm run build` — `tsc --noEmit` で型検査後、renderer / main / preload をビルド。
+- `npm start` — ビルド済み `dist-electron/main.js` で Electron 起動。
+- **Python は必ず venv を使う**: リポジトリ直下の `.venv`（Python 3.13）。`.\.venv\Scripts\python.exe` を直接呼ぶか activate してから使う。システムの `python` は Windows Store スタブなので使わない（`py -3.13` ランチャー経由で venv を作る）。
+- **注意**: VS Code 配下のターミナルは `ELECTRON_RUN_AS_NODE=1` を継承しており、そのままだと Electron が素の Node.js として起動して `app` が undefined になる。Electron を起動するコマンドの前に `Remove-Item Env:ELECTRON_RUN_AS_NODE` を実行すること。
+
 ## 検証
 
 - フロントエンドや型に関わる変更後は、可能な限り `npm run build` を実行する。

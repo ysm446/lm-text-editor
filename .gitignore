@@ -3,6 +3,9 @@
 .idea/
 *.code-workspace
 
+# Claude Code ローカル設定（コマンド承認履歴など）
+.claude/
+
 # 大容量資産（ローカル配置のみ）
 models/
 runtime/
