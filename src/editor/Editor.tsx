@@ -3,8 +3,13 @@ import { useEditor, EditorContent, type Editor as TipTapEditor } from '@tiptap/r
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
+import type { Node as PMNode } from '@tiptap/pm/model'
 import { api, streamText } from '../api/client'
 import InlineDiff from '../review/InlineDiff'
+import SplitReview, {
+  type SplitReviewState,
+  type SplitRow,
+} from '../review/SplitReview'
 import AssistPanel, { type AssistState } from '../panels/AssistPanel'
 
 const SAVE_DEBOUNCE_MS = 800
@@ -41,6 +46,38 @@ function imageFiles(list: FileList | undefined | null): File[] {
   return Array.from(list ?? []).filter((f) => f.type.startsWith('image/'))
 }
 
+// 分割ビューに切り替えるしきい値（N 段落以上）。設定 UI はフェーズ 5 で追加予定
+function splitThreshold(): number {
+  const raw = window.localStorage.getItem('lm-editor.splitThreshold')
+  const n = raw ? Number.parseInt(raw, 10) : NaN
+  return Number.isFinite(n) && n >= 1 ? n : 2
+}
+
+// トップレベルのテキストブロックを収集（コードブロックと画像は校正対象外）
+function collectBlocks(
+  doc: PMNode,
+  range?: { from: number; to: number },
+): { pos: number; text: string }[] {
+  const blocks: { pos: number; text: string }[] = []
+  doc.forEach((node, offset) => {
+    if (!node.isTextblock || node.type.name === 'codeBlock') return
+    if (range && (offset + node.nodeSize <= range.from || offset >= range.to)) return
+    if (!node.textContent.trim()) return
+    blocks.push({ pos: offset, text: node.textContent })
+  })
+  return blocks
+}
+
+function buildOutline(doc: PMNode): string {
+  const lines: string[] = []
+  doc.forEach((node) => {
+    if (node.type.name === 'heading') {
+      lines.push(`${'#'.repeat(node.attrs.level as number)} ${node.textContent}`)
+    }
+  })
+  return lines.join('\n')
+}
+
 // 1 ドキュメント = 1 インスタンス。App 側で key={docId} を付けて切替時に作り直す。
 export default function Editor({ docId, initialContent, onSave }: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
@@ -51,6 +88,7 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
   const [assistOpen, setAssistOpen] = useState(false)
   const [assist, setAssist] = useState<AssistState | null>(null)
   const assistInsertPos = useRef<number | null>(null)
+  const [splitReview, setSplitReview] = useState<SplitReviewState | null>(null)
 
   const flush = () => {
     if (pending.current) {
@@ -119,12 +157,126 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const startSplitReview = async (blocks: { pos: number; text: string }[]) => {
+    const ed = editorRef.current
+    if (!ed || blocks.length === 0) return
+    const rows: SplitRow[] = blocks.map((b) => ({
+      pos: b.pos,
+      original: b.text,
+      revised: null,
+      decided: 'pending',
+    }))
+    setSplitReview({ status: 'streaming', rows })
+    try {
+      let buffer = ''
+      for await (const chunk of streamText('/review/split', {
+        blocks: rows.map((r) => r.original),
+        outline: buildOutline(ed.state.doc),
+      })) {
+        buffer += chunk
+        let nl: number
+        while ((nl = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, nl)
+          buffer = buffer.slice(nl + 1)
+          if (!line.trim()) continue
+          const { index, revised } = JSON.parse(line) as {
+            index: number
+            revised: string
+          }
+          setSplitReview((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  rows: prev.rows.map((r, j) => (j === index ? { ...r, revised } : r)),
+                }
+              : prev,
+          )
+        }
+      }
+      setSplitReview((prev) => (prev ? { ...prev, status: 'ready' } : prev))
+    } catch (e) {
+      setSplitReview((prev) =>
+        prev
+          ? { ...prev, status: 'error', error: String(e instanceof Error ? e.message : e) }
+          : prev,
+      )
+    }
+  }
+
+  // 指定ブロックの本文を revised に置き換え、後続ブロックの位置を補正する
+  const applyRowToEditor = (row: SplitRow): number | null => {
+    const ed = editorRef.current
+    if (!ed || row.revised == null) return null
+    const node = ed.state.doc.nodeAt(row.pos)
+    if (!node) return null
+    const sizeBefore = ed.state.doc.content.size
+    ed.chain()
+      .insertContentAt({ from: row.pos + 1, to: row.pos + 1 + node.content.size }, row.revised)
+      .run()
+    return ed.state.doc.content.size - sizeBefore
+  }
+
+  const acceptSplitRow = (rowIndex: number) => {
+    if (!splitReview) return
+    const row = splitReview.rows[rowIndex]
+    if (row.decided !== 'pending' || row.revised == null) return
+    const delta = applyRowToEditor(row)
+    if (delta == null) return
+    setSplitReview((prev) =>
+      prev
+        ? {
+            ...prev,
+            rows: prev.rows.map((r, j) =>
+              j === rowIndex
+                ? { ...r, decided: 'accepted' }
+                : r.pos > row.pos
+                  ? { ...r, pos: r.pos + delta }
+                  : r,
+            ),
+          }
+        : prev,
+    )
+  }
+
+  const rejectSplitRow = (rowIndex: number) => {
+    setSplitReview((prev) =>
+      prev
+        ? {
+            ...prev,
+            rows: prev.rows.map((r, j) =>
+              j === rowIndex ? { ...r, decided: 'rejected' } : r,
+            ),
+          }
+        : prev,
+    )
+  }
+
+  const acceptAllSplit = () => {
+    if (!splitReview) return
+    const pending = splitReview.rows.filter(
+      (r) => r.decided === 'pending' && r.revised != null && r.revised !== r.original,
+    )
+    // 位置ずれを避けるため文書の後ろから適用する
+    for (const row of [...pending].sort((a, b) => b.pos - a.pos)) {
+      applyRowToEditor(row)
+    }
+    setSplitReview(null)
+  }
+
   const startReview = async () => {
     const ed = editorRef.current
     if (!ed) return
     const { from, to } = ed.state.selection
     if (from === to) return
     const doc = ed.state.doc
+
+    // 選択範囲がしきい値以上の段落数なら分割ビュー校正へ（spec §6.2）
+    const selectedBlocks = collectBlocks(doc, { from, to })
+    if (selectedBlocks.length >= splitThreshold()) {
+      void startSplitReview(selectedBlocks)
+      return
+    }
+
     const original = doc.textBetween(from, to, '\n')
     const contextBefore = doc.textBetween(
       Math.max(0, from - REVIEW_CONTEXT_CHARS),
@@ -236,6 +388,16 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
           選択範囲を校正
         </button>
         <button
+          disabled={splitReview?.status === 'streaming'}
+          onClick={() => {
+            const ed = editorRef.current
+            if (ed) void startSplitReview(collectBlocks(ed.state.doc))
+          }}
+          title="文書全体を左右分割ビューで校正します"
+        >
+          文書全体を校正
+        </button>
+        <button
           onClick={() => {
             setAssistOpen((v) => !v)
             if (assistOpen) setAssist(null)
@@ -245,6 +407,15 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
           執筆支援
         </button>
       </div>
+      {splitReview && (
+        <SplitReview
+          state={splitReview}
+          onAccept={acceptSplitRow}
+          onReject={rejectSplitRow}
+          onAcceptAll={acceptAllSplit}
+          onClose={() => setSplitReview(null)}
+        />
+      )}
       {assistOpen && (
         <AssistPanel
           assist={assist}

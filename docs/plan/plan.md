@@ -1,7 +1,7 @@
 # plan.md — 実装方針と優先順位
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 07:58
+更新日時: 2026-07-07 08:05
 
 ## 実装方針
 
@@ -28,8 +28,8 @@
 - [x] llama.cpp（Gemma 4, :8080）接続クライアントとタスクルータ（`start-llm.bat` / `backend/llm/client.py` / `backend/router.py`）
 - [x] 執筆支援（続き生成・セクション生成、ストリーミング表示。API 実測済み、UI の手動確認待ち）
 - [x] インライン校正（diff-match-patch、accept/reject。API は実測済み、UI の手動確認待ち）
-- [ ] 分割ビュー校正（左右分割、段落対応付け、段落ごと accept/reject）
-- [ ] 切り替えしきい値の設定（デフォルト: 2 段落以上で分割ビュー）
+- [x] 分割ビュー校正（左右分割、段落対応付け、段落ごと accept/reject、一括採用。API 実測済み、UI の手動確認待ち）
+- [x] 切り替えしきい値（デフォルト 2 段落。localStorage `lm-editor.splitThreshold` で変更可。設定 UI はフェーズ 5）
 
 ### フェーズ 3: RAG
 

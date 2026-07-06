@@ -66,8 +66,11 @@ def build_review_messages(
     text: str,
     context_before: str | None = None,
     context_after: str | None = None,
+    outline: str | None = None,
 ) -> list[Message]:
     parts: list[str] = []
+    if outline:
+        parts.append(f"## 記事のアウトライン（参考）\n{outline}")
     if context_before:
         parts.append(f"## 前の文脈（参考）\n{context_before}")
     parts.append(f"## 校正対象\n{text}")

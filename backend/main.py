@@ -5,6 +5,7 @@
 
 import base64
 import binascii
+import json
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -75,6 +76,11 @@ class ReviewInlineRequest(BaseModel):
     text: str
     context_before: str | None = None
     context_after: str | None = None
+
+
+class ReviewSplitRequest(BaseModel):
+    blocks: list[str]
+    outline: str | None = None
 
 
 class AssetCreate(BaseModel):
@@ -192,6 +198,37 @@ async def review_inline(body: ReviewInlineRequest) -> StreamingResponse:
         ),
         media_type="text/plain; charset=utf-8",
     )
+
+
+@app.post("/review/split")
+async def review_split(body: ReviewSplitRequest) -> StreamingResponse:
+    """段落を超える範囲の校正。段落ごとに校正し、完了した段落から
+    NDJSON（{"index": i, "revised": "..."}）でストリーム返却する。"""
+    if not body.blocks:
+        raise HTTPException(status_code=400, detail="blocks is required")
+    cfg = await _require_llm("review")
+
+    async def gen():
+        for i, text in enumerate(body.blocks):
+            if not text.strip():
+                yield json.dumps({"index": i, "revised": text}, ensure_ascii=False) + "\n"
+                continue
+            messages = prompts.build_review_messages(
+                text,
+                context_before=body.blocks[i - 1] if i > 0 else None,
+                context_after=body.blocks[i + 1] if i + 1 < len(body.blocks) else None,
+                outline=body.outline,
+            )
+            parts: list[str] = []
+            async for chunk in llm_client.stream_chat(
+                cfg["base_url"], messages, temperature=cfg["temperature"]
+            ):
+                parts.append(chunk)
+            yield json.dumps(
+                {"index": i, "revised": "".join(parts).strip()}, ensure_ascii=False
+            ) + "\n"
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson; charset=utf-8")
 
 
 @app.post("/assets")
