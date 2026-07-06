@@ -43,6 +43,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export interface LocalModel {
+  id: string
+  path: string
+  size_bytes: number
+}
+
+export interface LlamaStatus {
+  status: 'stopped' | 'loading' | 'ready'
+  active_model_path: string | null
+  external: boolean
+}
+
 // ストリーミング API（text/plain チャンク）を async generator として読む
 export async function* streamText(
   path: string,
@@ -100,6 +112,19 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+
+  listLocalModels: () => request<LocalModel[]>('/models/local'),
+
+  llamaStatus: () => request<LlamaStatus>('/llama/status'),
+
+  llamaSwitch: (modelPath: string) =>
+    request<{ status: string }>('/llama/switch', {
+      method: 'POST',
+      body: JSON.stringify({ model_path: modelPath }),
+    }),
+
+  llamaEject: () =>
+    request<{ status: string }>('/llama/eject', { method: 'POST' }),
 
   uploadAsset: async (body: {
     document_id: number

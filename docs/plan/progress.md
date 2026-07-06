@@ -1,7 +1,7 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 08:05
+更新日時: 2026-07-07 08:14
 
 ## 現在の状態
 
@@ -51,6 +51,13 @@
   - しきい値分岐: 選択範囲が 2 段落以上（localStorage `lm-editor.splitThreshold` で変更可）なら自動で分割ビュー。「文書全体を校正」ボタンも追加。
   - 対象はトップレベルのテキストブロック。コードブロック・画像は校正対象外。
   - 検証: 3 段落を 1.3 秒で校正（Gemma 4 実測）。
+
+- 2026-07-07 モデルバー（lm-chat の ModelBar を参考にユーザー要望で追加）:
+  - `backend/llm/manager.py`: llama-server の subprocess 管理。PID を `data/llama_runtime.json` に記録し、kill 前に tasklist でプロセス名検証（PID 再利用・外部起動の誤殺防止）。
+  - API: `GET /models/local`（models/ の GGUF 一覧）、`GET /llama/status`、`POST /llama/switch`、`POST /llama/eject`。
+  - UI 上部に ModelBar: 状態ドット（停止/起動中/稼働）、モデル選択ドロップダウン、起動/切替/停止ボタン、3 秒ポーリング。
+  - start-llm.bat で外部起動した場合は「外部起動の LLM」と表示し、アプリからは停止しない。
+  - 検証: API 経由で起動 → loading → ready → 校正実行 → 停止（プロセス消滅）まで実測。
 
 ## 未完了（次にやること）
 

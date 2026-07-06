@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Sidebar from './workspace/Sidebar'
 import Editor from './editor/Editor'
+import ModelBar from './ModelBar'
 import { api, type Doc, type DocMeta, type Workspace } from './api/client'
 
 export default function App() {
@@ -80,7 +81,9 @@ export default function App() {
 
   return (
     <div className="app">
-      <Sidebar
+      <ModelBar />
+      <div className="app-body">
+        <Sidebar
         workspaces={workspaces}
         currentWorkspaceId={currentWsId}
         docs={docs}
@@ -123,7 +126,8 @@ export default function App() {
               : 'ドキュメントを選択または作成してください。'}
           </div>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   )
 }

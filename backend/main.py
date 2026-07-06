@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from backend import router
 from backend.db import models
 from backend.llm import client as llm_client
+from backend.llm import manager as llm_manager
 from backend.llm import prompts
 
 
@@ -57,6 +58,10 @@ class DocUpdate(BaseModel):
     content_json: Any | None = None
     content_md: str | None = None
     title: str | None = None
+
+
+class LlamaSwitchRequest(BaseModel):
+    model_path: str
 
 
 class GenerateContinueRequest(BaseModel):
@@ -141,6 +146,29 @@ def update_doc(doc_id: int, body: DocUpdate) -> dict[str, bool]:
     if not ok:
         raise HTTPException(status_code=404, detail="document not found")
     return {"ok": True}
+
+
+@app.get("/models/local")
+def list_local_models() -> list[dict[str, Any]]:
+    return llm_manager.list_local_models()
+
+
+@app.get("/llama/status")
+def llama_status() -> dict[str, Any]:
+    return llm_manager.get_status()
+
+
+@app.post("/llama/switch")
+def llama_switch(body: LlamaSwitchRequest) -> dict[str, Any]:
+    try:
+        return llm_manager.switch_model(body.model_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/llama/eject")
+def llama_eject() -> dict[str, Any]:
+    return llm_manager.eject_model()
 
 
 async def _require_llm(task: str) -> dict:
