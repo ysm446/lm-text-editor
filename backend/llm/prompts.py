@@ -14,6 +14,54 @@ REVIEW_SYSTEM = (
 )
 
 
+CONTINUE_SYSTEM = (
+    "あなたは技術ブログ記事の執筆アシスタントです。"
+    "書きかけの記事の続きを書いてください。\n"
+    "ルール:\n"
+    "- これまでの文体・トーン・見出し構造を維持する。\n"
+    "- Markdown で書く。\n"
+    "- 続きの本文のみを出力する。説明・前置き・繰り返しは書かない。\n"
+    "- カーソル位置から自然につながるように書き始める。"
+)
+
+SECTION_SYSTEM = (
+    "あなたは技術ブログ記事の執筆アシスタントです。"
+    "指示に従って記事のセクションを書いてください。\n"
+    "ルール:\n"
+    "- 記事の現状（参考）と文体・トーンを揃える。\n"
+    "- Markdown で書く。見出しレベルは記事の構造に合わせる。\n"
+    "- セクションの本文のみを出力する。説明・前置きは書かない。"
+)
+
+
+def build_continue_messages(
+    before: str,
+    after: str | None = None,
+) -> list[Message]:
+    parts = [f"## ここまでの本文\n{before}"]
+    if after:
+        parts.append(f"## カーソルより後の本文（参考。ここに繋がるように）\n{after}")
+    parts.append("上記の「ここまでの本文」の続きを書いてください。")
+    return [
+        {"role": "system", "content": CONTINUE_SYSTEM},
+        {"role": "user", "content": "\n\n".join(parts)},
+    ]
+
+
+def build_section_messages(
+    instruction: str,
+    document_md: str | None = None,
+) -> list[Message]:
+    parts = []
+    if document_md:
+        parts.append(f"## 記事の現状（参考）\n{document_md}")
+    parts.append(f"## 指示\n{instruction}")
+    return [
+        {"role": "system", "content": SECTION_SYSTEM},
+        {"role": "user", "content": "\n\n".join(parts)},
+    ]
+
+
 def build_review_messages(
     text: str,
     context_before: str | None = None,

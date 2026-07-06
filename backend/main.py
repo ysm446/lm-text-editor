@@ -58,6 +58,19 @@ class DocUpdate(BaseModel):
     title: str | None = None
 
 
+class GenerateContinueRequest(BaseModel):
+    doc_id: int | None = None  # 将来 RAG 文脈の取得に使う
+    before: str
+    after: str | None = None
+
+
+class GenerateSectionRequest(BaseModel):
+    doc_id: int | None = None
+    instruction: str
+    document_md: str | None = None
+    use_rag: bool = False  # フェーズ 3 で実装。現状は無視される
+
+
 class ReviewInlineRequest(BaseModel):
     text: str
     context_before: str | None = None
@@ -124,17 +137,52 @@ def update_doc(doc_id: int, body: DocUpdate) -> dict[str, bool]:
     return {"ok": True}
 
 
-@app.post("/review/inline")
-async def review_inline(body: ReviewInlineRequest) -> StreamingResponse:
-    """選択範囲 / 単一段落のインライン校正。校正後テキストを平文でストリーム返却。"""
-    if not body.text.strip():
-        raise HTTPException(status_code=400, detail="text is required")
-    cfg = router.route("review")
+async def _require_llm(task: str) -> dict:
+    cfg = router.route(task)
     if not await llm_client.is_alive(cfg["base_url"]):
         raise HTTPException(
             status_code=503,
             detail="LLM サーバ (Gemma 4, :8080) に接続できません。start-llm.bat を起動してください。",
         )
+    return cfg
+
+
+@app.post("/generate/continue")
+async def generate_continue(body: GenerateContinueRequest) -> StreamingResponse:
+    """カーソル位置からの続き生成。Markdown を平文でストリーム返却。"""
+    if not body.before.strip():
+        raise HTTPException(status_code=400, detail="before is required")
+    cfg = await _require_llm("generate")
+    messages = prompts.build_continue_messages(body.before, body.after)
+    return StreamingResponse(
+        llm_client.stream_chat(
+            cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=1024
+        ),
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.post("/generate/section")
+async def generate_section(body: GenerateSectionRequest) -> StreamingResponse:
+    """指示からのセクション生成。Markdown を平文でストリーム返却。"""
+    if not body.instruction.strip():
+        raise HTTPException(status_code=400, detail="instruction is required")
+    cfg = await _require_llm("generate")
+    messages = prompts.build_section_messages(body.instruction, body.document_md)
+    return StreamingResponse(
+        llm_client.stream_chat(
+            cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=2048
+        ),
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.post("/review/inline")
+async def review_inline(body: ReviewInlineRequest) -> StreamingResponse:
+    """選択範囲 / 単一段落のインライン校正。校正後テキストを平文でストリーム返却。"""
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="text is required")
+    cfg = await _require_llm("review")
     messages = prompts.build_review_messages(
         body.text, body.context_before, body.context_after
     )

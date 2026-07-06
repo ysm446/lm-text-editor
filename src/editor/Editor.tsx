@@ -5,9 +5,12 @@ import Image from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
 import { api, streamText } from '../api/client'
 import InlineDiff from '../review/InlineDiff'
+import AssistPanel, { type AssistState } from '../panels/AssistPanel'
 
 const SAVE_DEBOUNCE_MS = 800
 const REVIEW_CONTEXT_CHARS = 500
+const CONTINUE_BEFORE_CHARS = 2000
+const CONTINUE_AFTER_CHARS = 500
 
 interface EditorProps {
   docId: number
@@ -45,6 +48,9 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
   const pending = useRef<{ json: unknown; md: string } | null>(null)
   const [selectionEmpty, setSelectionEmpty] = useState(true)
   const [review, setReview] = useState<ReviewState | null>(null)
+  const [assistOpen, setAssistOpen] = useState(false)
+  const [assist, setAssist] = useState<AssistState | null>(null)
+  const assistInsertPos = useRef<number | null>(null)
 
   const flush = () => {
     if (pending.current) {
@@ -152,6 +158,63 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
     }
   }
 
+  const runAssist = async (path: string, body: unknown) => {
+    const ed = editorRef.current
+    if (!ed) return
+    assistInsertPos.current = ed.state.selection.head
+    setAssist({ status: 'streaming', output: '' })
+    try {
+      let output = ''
+      for await (const chunk of streamText(path, body)) {
+        output += chunk
+        setAssist((a) => (a ? { ...a, output } : a))
+      }
+      setAssist((a) => (a ? { ...a, status: 'ready', output: output.trim() } : a))
+    } catch (e) {
+      setAssist((a) =>
+        a
+          ? { ...a, status: 'error', error: String(e instanceof Error ? e.message : e) }
+          : a,
+      )
+    }
+  }
+
+  const assistContinue = () => {
+    const ed = editorRef.current
+    if (!ed) return
+    const pos = ed.state.selection.head
+    const doc = ed.state.doc
+    void runAssist('/generate/continue', {
+      doc_id: docId,
+      before: doc.textBetween(Math.max(0, pos - CONTINUE_BEFORE_CHARS), pos, '\n'),
+      after: doc.textBetween(
+        pos,
+        Math.min(doc.content.size, pos + CONTINUE_AFTER_CHARS),
+        '\n',
+      ),
+    })
+  }
+
+  const assistSection = (instruction: string) => {
+    const ed = editorRef.current
+    if (!ed) return
+    void runAssist('/generate/section', {
+      doc_id: docId,
+      instruction,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      document_md: (ed.storage as any).markdown.getMarkdown() as string,
+    })
+  }
+
+  const assistInsert = () => {
+    if (!assist || assist.status !== 'ready') return
+    const pos = assistInsertPos.current ?? editorRef.current?.state.selection.head ?? 0
+    // tiptap-markdown により Markdown 文字列はパースされて挿入される
+    editorRef.current?.chain().focus().insertContentAt(pos, assist.output).run()
+    setAssist(null)
+    setAssistOpen(false)
+  }
+
   const acceptReview = () => {
     if (!review || review.status !== 'ready') return
     editorRef.current
@@ -172,7 +235,28 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
         >
           選択範囲を校正
         </button>
+        <button
+          onClick={() => {
+            setAssistOpen((v) => !v)
+            if (assistOpen) setAssist(null)
+          }}
+          title="続き生成・セクション生成"
+        >
+          執筆支援
+        </button>
       </div>
+      {assistOpen && (
+        <AssistPanel
+          assist={assist}
+          onContinue={assistContinue}
+          onGenerateSection={assistSection}
+          onInsert={assistInsert}
+          onClose={() => {
+            setAssist(null)
+            setAssistOpen(false)
+          }}
+        />
+      )}
       {review && (
         <InlineDiff
           original={review.original}

@@ -19,4 +19,4 @@ runtime\llama.cpp\llama-server.exe ^
   -m "%GEMMA_MODEL%" ^
   --mmproj "%GEMMA_MMPROJ%" ^
   --host 127.0.0.1 --port 8080 ^
-  -ngl 99 -c 16384 --jinja
+  -ngl 99 -c 16384 --jinja --reasoning-budget 0
