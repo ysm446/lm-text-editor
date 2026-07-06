@@ -12,10 +12,14 @@ from typing import Any, AsyncIterator
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from backend import router
 from backend.db import models
+from backend.llm import client as llm_client
+from backend.llm import prompts
 
 
 @asynccontextmanager
@@ -52,6 +56,12 @@ class DocUpdate(BaseModel):
     content_json: Any | None = None
     content_md: str | None = None
     title: str | None = None
+
+
+class ReviewInlineRequest(BaseModel):
+    text: str
+    context_before: str | None = None
+    context_after: str | None = None
 
 
 class AssetCreate(BaseModel):
@@ -112,6 +122,28 @@ def update_doc(doc_id: int, body: DocUpdate) -> dict[str, bool]:
     if not ok:
         raise HTTPException(status_code=404, detail="document not found")
     return {"ok": True}
+
+
+@app.post("/review/inline")
+async def review_inline(body: ReviewInlineRequest) -> StreamingResponse:
+    """選択範囲 / 単一段落のインライン校正。校正後テキストを平文でストリーム返却。"""
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="text is required")
+    cfg = router.route("review")
+    if not await llm_client.is_alive(cfg["base_url"]):
+        raise HTTPException(
+            status_code=503,
+            detail="LLM サーバ (Gemma 4, :8080) に接続できません。start-llm.bat を起動してください。",
+        )
+    messages = prompts.build_review_messages(
+        body.text, body.context_before, body.context_after
+    )
+    return StreamingResponse(
+        llm_client.stream_chat(
+            cfg["base_url"], messages, temperature=cfg["temperature"]
+        ),
+        media_type="text/plain; charset=utf-8",
+    )
 
 
 @app.post("/assets")

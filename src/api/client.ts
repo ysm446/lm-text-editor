@@ -43,6 +43,35 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// ストリーミング API（text/plain チャンク）を async generator として読む
+export async function* streamText(
+  path: string,
+  body: unknown,
+): AsyncGenerator<string> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    let detail = `${res.status}`
+    try {
+      detail = (JSON.parse(await res.text()) as { detail?: string }).detail ?? detail
+    } catch {
+      // JSON でなければステータスコードのまま
+    }
+    throw new Error(detail)
+  }
+  if (!res.body) throw new Error('response body is empty')
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    yield decoder.decode(value, { stream: true })
+  }
+}
+
 export const api = {
   listWorkspaces: () => request<Workspace[]>('/workspaces'),
 

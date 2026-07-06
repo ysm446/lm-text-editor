@@ -1,16 +1,27 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor as TipTapEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
-import { api } from '../api/client'
+import { api, streamText } from '../api/client'
+import InlineDiff from '../review/InlineDiff'
 
 const SAVE_DEBOUNCE_MS = 800
+const REVIEW_CONTEXT_CHARS = 500
 
 interface EditorProps {
   docId: number
   initialContent: unknown
   onSave: (docId: number, contentJson: unknown, contentMd: string) => void
+}
+
+interface ReviewState {
+  status: 'streaming' | 'ready' | 'error'
+  original: string
+  revised: string
+  from: number
+  to: number
+  error?: string
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -32,6 +43,8 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
   const saveTimer = useRef<number | null>(null)
   const pending = useRef<{ json: unknown; md: string } | null>(null)
+  const [selectionEmpty, setSelectionEmpty] = useState(true)
+  const [review, setReview] = useState<ReviewState | null>(null)
 
   const flush = () => {
     if (pending.current) {
@@ -85,6 +98,9 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
       saveTimer.current = window.setTimeout(flush, SAVE_DEBOUNCE_MS)
     },
+    onSelectionUpdate({ editor }) {
+      setSelectionEmpty(editor.state.selection.empty)
+    },
   })
   editorRef.current = editor
 
@@ -97,5 +113,77 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return <EditorContent editor={editor} className="tiptap-root" />
+  const startReview = async () => {
+    const ed = editorRef.current
+    if (!ed) return
+    const { from, to } = ed.state.selection
+    if (from === to) return
+    const doc = ed.state.doc
+    const original = doc.textBetween(from, to, '\n')
+    const contextBefore = doc.textBetween(
+      Math.max(0, from - REVIEW_CONTEXT_CHARS),
+      from,
+      '\n',
+    )
+    const contextAfter = doc.textBetween(
+      to,
+      Math.min(doc.content.size, to + REVIEW_CONTEXT_CHARS),
+      '\n',
+    )
+
+    setReview({ status: 'streaming', original, revised: '', from, to })
+    try {
+      let revised = ''
+      for await (const chunk of streamText('/review/inline', {
+        text: original,
+        context_before: contextBefore,
+        context_after: contextAfter,
+      })) {
+        revised += chunk
+        setReview((r) => (r ? { ...r, revised } : r))
+      }
+      setReview((r) =>
+        r ? { ...r, status: 'ready', revised: revised.trim() } : r,
+      )
+    } catch (e) {
+      setReview((r) =>
+        r ? { ...r, status: 'error', error: String(e instanceof Error ? e.message : e) } : r,
+      )
+    }
+  }
+
+  const acceptReview = () => {
+    if (!review || review.status !== 'ready') return
+    editorRef.current
+      ?.chain()
+      .focus()
+      .insertContentAt({ from: review.from, to: review.to }, review.revised)
+      .run()
+    setReview(null)
+  }
+
+  return (
+    <div className="editor-root">
+      <div className="editor-toolbar">
+        <button
+          disabled={selectionEmpty || review?.status === 'streaming'}
+          onClick={() => void startReview()}
+          title="選択した範囲を LLM で校正します"
+        >
+          選択範囲を校正
+        </button>
+      </div>
+      {review && (
+        <InlineDiff
+          original={review.original}
+          revised={review.revised}
+          status={review.status}
+          error={review.error}
+          onAccept={acceptReview}
+          onReject={() => setReview(null)}
+        />
+      )}
+      <EditorContent editor={editor} className="tiptap-root" />
+    </div>
+  )
 }

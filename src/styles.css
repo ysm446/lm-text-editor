@@ -146,6 +146,104 @@ body {
   cursor: pointer;
 }
 
+/* 校正ツールバー / インライン diff */
+.editor-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 0 4px 8px;
+}
+
+.editor-toolbar button {
+  padding: 4px 12px;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85em;
+}
+
+.editor-toolbar button:hover:not(:disabled) {
+  background: #f0f1f3;
+}
+
+.editor-toolbar button:disabled {
+  color: #a1a8b0;
+  cursor: default;
+}
+
+.inline-diff {
+  margin: 0 0 12px;
+  border: 1px solid #8cb4e8;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.inline-diff-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f0f6ff;
+  border-bottom: 1px solid #d1d9e0;
+  font-size: 0.85em;
+  color: #59636e;
+}
+
+.inline-diff-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.inline-diff-actions button {
+  padding: 3px 12px;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.inline-diff-actions button:first-child {
+  background: #1f883d;
+  border-color: #1f883d;
+  color: #fff;
+}
+
+.inline-diff-body {
+  padding: 12px 16px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.inline-diff-body del {
+  background: #ffdce0;
+  color: #82071e;
+  text-decoration: line-through;
+}
+
+.inline-diff-body ins {
+  background: #d4f7dc;
+  color: #055d20;
+  text-decoration: none;
+}
+
+.diff-caret {
+  animation: blink 1s step-start infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.diff-error {
+  color: #82071e;
+}
+
 .tiptap-root {
   max-width: 760px;
   margin: 0 auto;
