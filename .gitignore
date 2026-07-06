@@ -32,6 +32,7 @@ venv/
 *.sqlite
 *.sqlite3
 *.db
+data/
 
 # 環境変数・秘密情報
 .env

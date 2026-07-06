@@ -1,7 +1,7 @@
 # plan.md — 実装方針と優先順位
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 07:14
+更新日時: 2026-07-07 07:32
 
 ## 実装方針
 
@@ -16,12 +16,12 @@
 
 ### フェーズ 1: エディタ基盤 ← 最優先
 
-- [ ] プロジェクト雛形: Electron + Vite + React + TypeScript のセットアップ、`package.json` 整備
-- [ ] TipTap エディタ（StarterKit + tiptap-markdown）
-- [ ] 画像挿入（ワークスペースディレクトリ配下に保存、相対パス参照、`asset` 登録）
-- [ ] ワークスペース / 文書管理（サイドバー、DocTree）
-- [ ] SQLite 永続化（`workspace` / `document` / `asset` テーブル、自動保存）
-- [ ] FastAPI 雛形とワークスペース / 文書 CRUD API
+- [x] プロジェクト雛形: Electron + Vite + React + TypeScript のセットアップ、`package.json` 整備
+- [x] TipTap エディタ（StarterKit + tiptap-markdown。TipTap は v3 系を採用）
+- [x] 画像挿入（ペースト / ドロップ → `data/workspaces/<id>/images/` 保存、`asset` 登録）
+- [x] ワークスペース / 文書管理（サイドバー。ツリー表示は必要になったら拡張）
+- [x] SQLite 永続化（`workspace` / `document` / `asset` テーブル、800ms デバウンス自動保存）
+- [x] FastAPI 雛形とワークスペース / 文書 CRUD API（`npm run backend`）
 
 ### フェーズ 2: LLM 接続と校正
 

@@ -1,11 +1,11 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 07:23
+更新日時: 2026-07-07 07:32
 
 ## 現在の状態
 
-**フェーズ 1（エディタ基盤）進行中**。Electron + Vite + React + TypeScript の雛形と TipTap エディタの基本表示まで完了。次はワークスペース / サイドバーと SQLite 永続化。
+**フェーズ 1（エディタ基盤）ほぼ完了**。エディタ・ワークスペース管理・SQLite 永続化・画像挿入・FastAPI CRUD まで動作。UI の手動確認（実際の執筆操作）を経てフェーズ 2（LLM 接続と校正）へ。
 
 ## 完了済み
 
@@ -24,13 +24,18 @@
   - TipTap v3 エディタ基本表示（StarterKit + tiptap-markdown 0.9）。
   - `npm run build`（型検査 + 3 バンドル）と Electron 実起動を確認。
   - Python venv（`.venv`, Python 3.13.11）作成。
+- 2026-07-07 フェーズ 1 本体:
+  - FastAPI backend（`backend/main.py`）: workspace / document CRUD、画像アセット保存 API（base64 受信 → `data/workspaces/<id>/images/` 保存 → `/files/` で配信）。起動は `npm run backend`。
+  - SQLite 永続化（`backend/db/schema.sql` = workspace / document / asset。RAG テーブルはフェーズ 3 で追加）。DB とファイルは `data/`（gitignore 済み）。
+  - ワークスペース / ドキュメントのサイドバー（`src/workspace/Sidebar.tsx`。作成はインライン入力 — Electron では `window.prompt` 不可）。
+  - 自動保存（800ms デバウンス + ドキュメント切替時フラッシュ。TipTap JSON + Markdown 派生を PUT）。
+  - 画像挿入（ペースト / ドロップ → backend にアップロード → 画像ノード挿入）。
+  - 検証: `npm run build` / `py_compile` / CRUD・日本語・画像アップロードを HTTP で実測 / Electron 実起動。
 
 ## 未完了（次にやること）
 
-- フェーズ 1 の残り（詳細は [plan.md](plan.md) のチェックリスト参照）:
-  - 画像挿入（ワークスペースディレクトリ保存 + `asset` 登録）。
-  - ワークスペース / 文書管理（サイドバー、DocTree）。
-  - SQLite 永続化と FastAPI 雛形（CRUD API）。venv は作成済み、パッケージ導入から。
+- フェーズ 1 の仕上げ: 実際の執筆操作での手動確認（ワークスペース作成 → 執筆 → 再起動して内容が残るか、画像ペースト）。
+- フェーズ 2: LLM 接続と校正（llama.cpp 起動スクリプト、Gemma 4 接続、インライン校正、分割ビュー校正）。
 
 ## 注意点
 
