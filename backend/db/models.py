@@ -34,6 +34,11 @@ def get_conn() -> Iterator[sqlite3.Connection]:
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        # 既存 DB のマイグレーション（フェーズ 6 で draft 列を追加）
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(document)")}
+        if "draft_json" not in cols:
+            conn.execute("ALTER TABLE document ADD COLUMN draft_json TEXT")
+            conn.execute("ALTER TABLE document ADD COLUMN draft_saved_at TEXT")
 
 
 # --- workspace ---
@@ -54,6 +59,34 @@ def create_workspace(name: str) -> dict[str, Any]:
         )
         ws_id = cur.lastrowid
     return {"id": ws_id, "name": name, "created_at": now}
+
+
+def update_workspace(ws_id: int, name: str) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE workspace SET name = ? WHERE id = ?", (name, ws_id)
+        )
+        return cur.rowcount > 0
+
+
+def delete_workspace(ws_id: int) -> bool:
+    """ワークスペースと配下の文書・アセット・リビジョンを削除する。"""
+    with get_conn() as conn:
+        doc_ids = [
+            r["id"]
+            for r in conn.execute(
+                "SELECT id FROM document WHERE workspace_id = ?", (ws_id,)
+            )
+        ]
+        if doc_ids:
+            ph = ",".join("?" * len(doc_ids))
+            conn.execute(f"DELETE FROM asset WHERE document_id IN ({ph})", doc_ids)
+            conn.execute(
+                f"DELETE FROM document_revision WHERE document_id IN ({ph})", doc_ids
+            )
+            conn.execute(f"DELETE FROM document WHERE id IN ({ph})", doc_ids)
+        cur = conn.execute("DELETE FROM workspace WHERE id = ?", (ws_id,))
+        return cur.rowcount > 0
 
 
 # --- document ---
@@ -87,7 +120,8 @@ def create_doc(workspace_id: int, title: str) -> dict[str, Any] | None:
 def get_doc(doc_id: int) -> dict[str, Any] | None:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, workspace_id, title, content_json, content_md, updated_at"
+            "SELECT id, workspace_id, title, content_json, content_md, updated_at,"
+            " draft_json, draft_saved_at"
             " FROM document WHERE id = ?",
             (doc_id,),
         ).fetchone()
@@ -95,7 +129,108 @@ def get_doc(doc_id: int) -> dict[str, Any] | None:
         return None
     doc = dict(row)
     doc["content_json"] = json.loads(doc["content_json"])
+    doc["draft_json"] = json.loads(doc["draft_json"]) if doc["draft_json"] else None
     return doc
+
+
+def save_doc(
+    doc_id: int,
+    content_json: Any,
+    content_md: str | None,
+    title: str | None = None,
+) -> bool:
+    """明示保存: 本文を更新してドラフトをクリアし、リビジョンを残す。"""
+    now = _now()
+    with get_conn() as conn:
+        sets = (
+            "content_json = ?, content_md = ?, updated_at = ?,"
+            " draft_json = NULL, draft_saved_at = NULL"
+        )
+        params: list[Any] = [json.dumps(content_json, ensure_ascii=False), content_md, now]
+        if title is not None:
+            sets += ", title = ?"
+            params.append(title)
+        params.append(doc_id)
+        cur = conn.execute(f"UPDATE document SET {sets} WHERE id = ?", params)
+        if cur.rowcount == 0:
+            return False
+        row = conn.execute(
+            "SELECT title FROM document WHERE id = ?", (doc_id,)
+        ).fetchone()
+        conn.execute(
+            "INSERT INTO document_revision"
+            " (document_id, title, content_json, content_md, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (
+                doc_id,
+                row["title"],
+                json.dumps(content_json, ensure_ascii=False),
+                content_md,
+                now,
+            ),
+        )
+        return True
+
+
+def set_draft(doc_id: int, content_json: Any | None) -> bool:
+    """ドラフト退避の保存（None でクリア）。updated_at は変えない。"""
+    with get_conn() as conn:
+        if content_json is None:
+            cur = conn.execute(
+                "UPDATE document SET draft_json = NULL, draft_saved_at = NULL"
+                " WHERE id = ?",
+                (doc_id,),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE document SET draft_json = ?, draft_saved_at = ? WHERE id = ?",
+                (json.dumps(content_json, ensure_ascii=False), _now(), doc_id),
+            )
+        return cur.rowcount > 0
+
+
+def list_revisions(doc_id: int) -> list[dict[str, Any]]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, title, created_at FROM document_revision"
+            " WHERE document_id = ? ORDER BY id DESC",
+            (doc_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_revision(revision_id: int) -> dict[str, Any] | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, document_id, title, content_json, content_md, created_at"
+            " FROM document_revision WHERE id = ?",
+            (revision_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    rev = dict(row)
+    rev["content_json"] = json.loads(rev["content_json"])
+    return rev
+
+
+def delete_doc(doc_id: int) -> dict[str, Any] | None:
+    """文書とアセット・リビジョンを削除。画像ファイル掃除用の情報を返す。"""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT workspace_id FROM document WHERE id = ?", (doc_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        rel_paths = [
+            r["rel_path"]
+            for r in conn.execute(
+                "SELECT rel_path FROM asset WHERE document_id = ?", (doc_id,)
+            )
+        ]
+        conn.execute("DELETE FROM asset WHERE document_id = ?", (doc_id,))
+        conn.execute("DELETE FROM document_revision WHERE document_id = ?", (doc_id,))
+        conn.execute("DELETE FROM document WHERE id = ?", (doc_id,))
+    return {"workspace_id": row["workspace_id"], "rel_paths": rel_paths}
 
 
 def update_doc(

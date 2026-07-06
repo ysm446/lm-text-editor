@@ -10,9 +10,10 @@ import SplitReview, {
   type SplitReviewState,
   type SplitRow,
 } from '../review/SplitReview'
+import RevisionPanel from '../review/RevisionPanel'
 import AssistPanel, { type AssistState } from '../panels/AssistPanel'
 
-const SAVE_DEBOUNCE_MS = 800
+const DRAFT_DEBOUNCE_MS = 1500
 const REVIEW_CONTEXT_CHARS = 500
 const CONTINUE_BEFORE_CHARS = 2000
 const CONTINUE_AFTER_CHARS = 500
@@ -20,7 +21,9 @@ const CONTINUE_AFTER_CHARS = 500
 interface EditorProps {
   docId: number
   initialContent: unknown
-  onSave: (docId: number, contentJson: unknown, contentMd: string) => void
+  draft: unknown | null // 前回の未保存編集（ドラフト退避）
+  draftSavedAt: string | null
+  onSaved: (docId: number) => void
 }
 
 interface ReviewState {
@@ -79,22 +82,89 @@ function buildOutline(doc: PMNode): string {
 }
 
 // 1 ドキュメント = 1 インスタンス。App 側で key={docId} を付けて切替時に作り直す。
-export default function Editor({ docId, initialContent, onSave }: EditorProps) {
+export default function Editor({
+  docId,
+  initialContent,
+  draft,
+  draftSavedAt,
+  onSaved,
+}: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
-  const saveTimer = useRef<number | null>(null)
-  const pending = useRef<{ json: unknown; md: string } | null>(null)
+  const draftTimer = useRef<number | null>(null)
+  const pendingDraft = useRef<unknown | null>(null)
   const [selectionEmpty, setSelectionEmpty] = useState(true)
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [draftBanner, setDraftBanner] = useState(draft != null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyMd, setHistoryMd] = useState('')
   const [review, setReview] = useState<ReviewState | null>(null)
   const [assistOpen, setAssistOpen] = useState(false)
   const [assist, setAssist] = useState<AssistState | null>(null)
   const assistInsertPos = useRef<number | null>(null)
   const [splitReview, setSplitReview] = useState<SplitReviewState | null>(null)
 
-  const flush = () => {
-    if (pending.current) {
-      onSave(docId, pending.current.json, pending.current.md)
-      pending.current = null
+  const getMarkdown = () =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((editorRef.current?.storage as any)?.markdown.getMarkdown() as string) ?? ''
+
+  const flushDraft = () => {
+    if (pendingDraft.current != null) {
+      void api.saveDraft(docId, pendingDraft.current).catch(() => undefined)
+      pendingDraft.current = null
     }
+  }
+
+  // 明示保存: 本文更新 + リビジョン追加 + ドラフトクリア
+  const save = async () => {
+    const ed = editorRef.current
+    if (!ed || saving || !dirty) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await api.saveDoc(docId, {
+        content_json: ed.getJSON(),
+        content_md: getMarkdown(),
+      })
+      if (draftTimer.current) window.clearTimeout(draftTimer.current)
+      pendingDraft.current = null
+      setDirty(false)
+      setDraftBanner(false)
+      onSaved(docId)
+    } catch (e) {
+      setSaveError(String(e instanceof Error ? e.message : e))
+    } finally {
+      setSaving(false)
+    }
+  }
+  const saveRef = useRef(save)
+  saveRef.current = save
+
+  // Ctrl+S / Cmd+S
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        void saveRef.current()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const restoreDraft = () => {
+    if (draft != null) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      editorRef.current?.commands.setContent(draft as any)
+      setDirty(true)
+    }
+    setDraftBanner(false)
+  }
+
+  const discardDraft = () => {
+    void api.clearDraft(docId).catch(() => undefined)
+    setDraftBanner(false)
   }
 
   const uploadAndInsert = async (file: File) => {
@@ -134,13 +204,13 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
       },
     },
     onUpdate({ editor }) {
-      pending.current = {
-        json: editor.getJSON(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        md: (editor.storage as any).markdown.getMarkdown() as string,
-      }
-      if (saveTimer.current) window.clearTimeout(saveTimer.current)
-      saveTimer.current = window.setTimeout(flush, SAVE_DEBOUNCE_MS)
+      setDirty(true)
+      // ドラフト退避（クラッシュ対策）。正式な保存は保存ボタン / Ctrl+S のみ
+      pendingDraft.current = editor.getJSON()
+      if (draftTimer.current) window.clearTimeout(draftTimer.current)
+      draftTimer.current = window.setTimeout(() => {
+        flushDraft()
+      }, DRAFT_DEBOUNCE_MS)
     },
     onSelectionUpdate({ editor }) {
       setSelectionEmpty(editor.state.selection.empty)
@@ -148,11 +218,11 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
   })
   editorRef.current = editor
 
-  // アンマウント（ドキュメント切替）時は保存待ちを即時フラッシュ
+  // アンマウント（ドキュメント切替）時はドラフト退避を即時フラッシュ
   useEffect(() => {
     return () => {
-      if (saveTimer.current) window.clearTimeout(saveTimer.current)
-      flush()
+      if (draftTimer.current) window.clearTimeout(draftTimer.current)
+      flushDraft()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -407,7 +477,58 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
         >
           執筆支援
         </button>
+        <button
+          onClick={() => {
+            if (!historyOpen) setHistoryMd(getMarkdown())
+            setHistoryOpen((v) => !v)
+          }}
+          title="保存履歴の一覧・差分・読み込み"
+        >
+          履歴
+        </button>
+        <div className="toolbar-spacer" />
+        {saveError && <span className="save-error">{saveError}</span>}
+        {dirty && !saving && (
+          <span className="dirty-indicator" title="未保存の変更があります">
+            ● 未保存
+          </span>
+        )}
+        <button
+          className="save-btn"
+          disabled={!dirty || saving}
+          onClick={() => void save()}
+          title="保存（Ctrl+S）。保存のたびに履歴が残ります"
+        >
+          {saving ? '保存中…' : '保存'}
+        </button>
       </div>
+      {draftBanner && (
+        <div className="draft-banner">
+          <span>
+            未保存の下書きがあります
+            {draftSavedAt ? `（${new Date(draftSavedAt).toLocaleString('ja-JP')}）` : ''}
+            。復元しますか？
+          </span>
+          <div className="draft-banner-actions">
+            <button className="primary" onClick={restoreDraft}>
+              復元
+            </button>
+            <button onClick={discardDraft}>破棄</button>
+          </div>
+        </div>
+      )}
+      {historyOpen && (
+        <RevisionPanel
+          docId={docId}
+          currentMd={historyMd}
+          onLoadRevision={(json) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            editorRef.current?.commands.setContent(json as any)
+            setDirty(true)
+          }}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
       {splitReview && (
         <SplitReview
           state={splitReview}

@@ -7,6 +7,7 @@ import asyncio
 import base64
 import binascii
 import json
+import shutil
 import threading
 import uuid
 from contextlib import asynccontextmanager
@@ -70,10 +71,22 @@ class DocCreate(BaseModel):
     title: str
 
 
-class DocUpdate(BaseModel):
-    content_json: Any | None = None
+class DocRename(BaseModel):
+    title: str
+
+
+class DocSaveRequest(BaseModel):
+    content_json: Any
     content_md: str | None = None
     title: str | None = None
+
+
+class DocDraftRequest(BaseModel):
+    content_json: Any | None = None  # null でドラフトをクリア
+
+
+class WorkspaceRename(BaseModel):
+    name: str
 
 
 class LlamaSwitchRequest(BaseModel):
@@ -169,15 +182,76 @@ def get_doc(doc_id: int) -> dict[str, Any]:
 
 
 @app.put("/docs/{doc_id}")
-def update_doc(doc_id: int, body: DocUpdate) -> dict[str, bool]:
-    ok = models.update_doc(
-        doc_id,
-        content_json=body.content_json,
-        content_md=body.content_md,
-        title=body.title,
+def rename_doc(doc_id: int, body: DocRename) -> dict[str, bool]:
+    title = body.title.strip() or "無題"
+    if not models.update_doc(doc_id, title=title):
+        raise HTTPException(status_code=404, detail="document not found")
+    return {"ok": True}
+
+
+@app.post("/docs/{doc_id}/save")
+def save_doc(doc_id: int, body: DocSaveRequest) -> dict[str, bool]:
+    """明示保存: 本文更新 + ドラフトクリア + リビジョン追加。"""
+    ok = models.save_doc(
+        doc_id, body.content_json, body.content_md, title=body.title
     )
     if not ok:
         raise HTTPException(status_code=404, detail="document not found")
+    return {"ok": True}
+
+
+@app.post("/docs/{doc_id}/draft")
+def save_draft(doc_id: int, body: DocDraftRequest) -> dict[str, bool]:
+    """ドラフト退避（クラッシュ・閉じ忘れ対策）。content_json=null でクリア。"""
+    if not models.set_draft(doc_id, body.content_json):
+        raise HTTPException(status_code=404, detail="document not found")
+    return {"ok": True}
+
+
+@app.get("/docs/{doc_id}/revisions")
+def list_revisions(doc_id: int) -> list[dict[str, Any]]:
+    return models.list_revisions(doc_id)
+
+
+@app.get("/revisions/{revision_id}")
+def get_revision(revision_id: int) -> dict[str, Any]:
+    rev = models.get_revision(revision_id)
+    if rev is None:
+        raise HTTPException(status_code=404, detail="revision not found")
+    return rev
+
+
+@app.delete("/docs/{doc_id}")
+def delete_doc(doc_id: int) -> dict[str, bool]:
+    info = models.delete_doc(doc_id)
+    if info is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    ws_dir = paths.workspace_files_dir() / str(info["workspace_id"])
+    for rel in info["rel_paths"]:
+        target = (ws_dir / rel).resolve()
+        if ws_dir.resolve() in target.parents and target.is_file():
+            target.unlink(missing_ok=True)
+    return {"ok": True}
+
+
+@app.put("/workspaces/{workspace_id}")
+def rename_workspace(workspace_id: int, body: WorkspaceRename) -> dict[str, bool]:
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    if not models.update_workspace(workspace_id, name):
+        raise HTTPException(status_code=404, detail="workspace not found")
+    return {"ok": True}
+
+
+@app.delete("/workspaces/{workspace_id}")
+def delete_workspace(workspace_id: int) -> dict[str, bool]:
+    if not models.delete_workspace(workspace_id):
+        raise HTTPException(status_code=404, detail="workspace not found")
+    rag_store.delete_workspace_data(workspace_id)
+    shutil.rmtree(
+        paths.workspace_files_dir() / str(workspace_id), ignore_errors=True
+    )
     return {"ok": True}
 
 

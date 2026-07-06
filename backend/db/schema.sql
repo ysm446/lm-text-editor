@@ -13,7 +13,19 @@ CREATE TABLE IF NOT EXISTS document (
   title TEXT NOT NULL,
   content_json TEXT NOT NULL,      -- TipTap の JSON（正）
   content_md TEXT,                 -- Markdown シリアライズ（書き出し用キャッシュ）
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  draft_json TEXT,                 -- 未保存編集の退避（クラッシュ対策。明示保存でクリア）
+  draft_saved_at TEXT
+);
+
+-- 保存のたびに残すスナップショット（フェーズ 6: バージョン管理）
+CREATE TABLE IF NOT EXISTS document_revision (
+  id INTEGER PRIMARY KEY,
+  document_id INTEGER NOT NULL REFERENCES document(id),
+  title TEXT NOT NULL,
+  content_json TEXT NOT NULL,
+  content_md TEXT,
+  created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS asset (

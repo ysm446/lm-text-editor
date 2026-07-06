@@ -61,24 +61,77 @@ export default function App() {
     [currentWsId],
   )
 
-  const saveDoc = useCallback(
-    (docId: number, contentJson: unknown, contentMd: string) => {
-      void api.updateDoc(docId, { content_json: contentJson, content_md: contentMd })
-    },
-    [],
-  )
+  // 明示保存の完了後に一覧の並び（updated_at 順）を更新する
+  const handleSaved = useCallback(() => {
+    if (currentWsId != null) {
+      void api.listDocs(currentWsId).then(setDocs)
+    }
+  }, [currentWsId])
 
   const saveTitle = useCallback(async () => {
     if (!currentDoc) return
     const title = titleDraft.trim() || '無題'
     if (title !== currentDoc.title) {
-      await api.updateDoc(currentDoc.id, { title })
+      await api.renameDoc(currentDoc.id, title)
       setCurrentDoc({ ...currentDoc, title })
       if (currentWsId != null) {
         setDocs(await api.listDocs(currentWsId))
       }
     }
   }, [currentDoc, currentWsId, titleDraft])
+
+  const renameWorkspace = useCallback(
+    async (id: number, name: string) => {
+      await api.renameWorkspace(id, name)
+      await refreshWorkspaces()
+    },
+    [refreshWorkspaces],
+  )
+
+  const deleteWorkspace = useCallback(
+    async (id: number) => {
+      const ws = workspaces.find((w) => w.id === id)
+      if (
+        !window.confirm(
+          `ワークスペース「${ws?.name ?? id}」を削除しますか？\n中のドキュメント・画像・RAG データもすべて削除されます。`,
+        )
+      )
+        return
+      await api.deleteWorkspace(id)
+      if (id === currentWsId) {
+        setCurrentWsId(null)
+        setDocs([])
+        setCurrentDoc(null)
+      }
+      await refreshWorkspaces()
+    },
+    [currentWsId, refreshWorkspaces, workspaces],
+  )
+
+  const renameDoc = useCallback(
+    async (id: number, title: string) => {
+      await api.renameDoc(id, title)
+      if (currentWsId != null) setDocs(await api.listDocs(currentWsId))
+      if (currentDoc?.id === id) setCurrentDoc({ ...currentDoc, title })
+    },
+    [currentDoc, currentWsId],
+  )
+
+  const deleteDoc = useCallback(
+    async (id: number) => {
+      const doc = docs.find((d) => d.id === id)
+      if (
+        !window.confirm(
+          `ドキュメント「${doc?.title ?? id}」を削除しますか？\n保存履歴・画像も削除されます。`,
+        )
+      )
+        return
+      await api.deleteDoc(id)
+      if (currentDoc?.id === id) setCurrentDoc(null)
+      if (currentWsId != null) setDocs(await api.listDocs(currentWsId))
+    },
+    [currentDoc, currentWsId, docs],
+  )
 
   // ライブラリ切替後は選択状態を捨てて全リロード
   const handleLibrarySwitched = useCallback(() => {
@@ -104,6 +157,10 @@ export default function App() {
         onSelectDoc={(id) => void selectDoc(id)}
         onCreateWorkspace={(name) => void createWorkspace(name)}
         onCreateDoc={(title) => void createDoc(title)}
+        onRenameWorkspace={(id, name) => void renameWorkspace(id, name)}
+        onDeleteWorkspace={(id) => void deleteWorkspace(id)}
+        onRenameDoc={(id, title) => void renameDoc(id, title)}
+        onDeleteDoc={(id) => void deleteDoc(id)}
       />
       <main className="editor-area">
         {backendError && (
@@ -128,7 +185,9 @@ export default function App() {
               key={currentDoc.id}
               docId={currentDoc.id}
               initialContent={currentDoc.content_json}
-              onSave={saveDoc}
+              draft={currentDoc.draft_json}
+              draftSavedAt={currentDoc.draft_saved_at}
+              onSaved={handleSaved}
             />
           </div>
         ) : (

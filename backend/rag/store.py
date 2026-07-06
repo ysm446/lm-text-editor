@@ -127,6 +127,24 @@ def ingest(
     return chunk_ids
 
 
+def delete_workspace_data(workspace_id: int) -> int:
+    """ワークスペース削除時に、そのスコープの RAG データを掃除する。"""
+    with connect() as conn:
+        ids = [
+            r["id"]
+            for r in conn.execute(
+                "SELECT id FROM rag_chunk WHERE workspace_id = ?", (workspace_id,)
+            )
+        ]
+        if ids:
+            ph = ",".join("?" * len(ids))
+            conn.execute(f"DELETE FROM rag_fts WHERE chunk_id IN ({ph})", ids)
+            conn.execute(f"DELETE FROM rag_vec WHERE chunk_id IN ({ph})", ids)
+            conn.execute(f"DELETE FROM rag_chunk WHERE id IN ({ph})", ids)
+        conn.execute("DELETE FROM source_note WHERE workspace_id = ?", (workspace_id,))
+    return len(ids)
+
+
 def chunk_count() -> int:
     with connect() as conn:
         row = conn.execute("SELECT COUNT(*) AS c FROM rag_chunk").fetchone()
