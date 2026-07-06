@@ -1,0 +1,75 @@
+# CLAUDE.md
+
+このファイルは Claude Code 向けのプロジェクトガイドです。
+エージェント共通のルールは [AGENTS.md](AGENTS.md) に定義されており、本ファイルはそれを前提とします。
+
+## プロジェクト概要
+
+ローカル LLM と協働で技術ブログ記事を執筆・校正するスタンドアロンのデスクトップエディタ。
+詳細仕様は `docs/spec.md` を参照。
+
+- Word ライクな WYSIWYG エディタ（TipTap / Markdown ネイティブ / 画像挿入）
+- 校正の二モード: インライン校正（同一画面 diff）と分割ビュー校正（左右 before/after）
+- RAG（過去記事・リファレンス・Web 取得原文）と Web 検索の統合
+- ワークスペース単位の文書管理
+
+## アーキテクチャ
+
+```
+Electron (React + TypeScript + TipTap)
+        │ HTTP (localhost)
+FastAPI backend（タスクルータ / RAG / Web 検索 / <think> パーサ）
+        │
+llama.cpp :8080 Gemma 4（執筆・校正・画像）
+llama.cpp :8081 ornith 9B（検索クエリ分解・要約・reasoning）
+SQLite + sqlite-vec + FTS5（RAG・文書・ワークスペース）
+```
+
+- モデル同士は直接連携しない。FastAPI が仲介する疎結合（dual-port ルーティング）。
+- LLM 呼び出しはすべて OpenAI 互換 `/v1/chat/completions`（執筆・校正はストリーミング）。
+- ornith の出力は `<think>...</think>` を含むため、`think_parser` で除去してから利用する。
+
+## 開発規約（spec.md §13 より）
+
+- 命名: lowercase-hyphenated（プロジェクト・ディレクトリ）。
+- 既存 ML コンポーネントは subprocess / HTTP でラップし、再実装しない。
+- 埋め込みは Ruri、検索は hybrid（sqlite-vec ベクトル + FTS5 全文）固定。
+- 文書の正は TipTap JSON（`content_json`）。Markdown は書き出し用の派生。
+- LangChain 等の重いフレームワークは使わない。RAG / Web 検索の発火はアプリ側が明示制御。
+
+## 作業開始時の確認
+
+AGENTS.md の規定どおり、作業前に以下を読んで現在地を把握する。
+
+1. `docs/plan/goals.md` — 目的・完成形・重視する価値
+2. `docs/plan/plan.md` — 実装方針・優先順位・今後の予定
+3. `docs/plan/progress.md` — 進捗・完了/未完了作業・注意点
+
+計画と矛盾しそうな変更は、実装前にユーザーへ確認する。
+
+## ドキュメント・バージョン管理
+
+- `docs/**/*.md` の新規作成・更新時は、本文先頭付近に `作成日時: YYYY-MM-DD HH:MM` / `更新日時: YYYY-MM-DD HH:MM` を記録する。
+- ユーザー向けの明確な変更は `docs/changelog.md`（日本語）に記録する。未確定分は「未リリース」セクションへ。
+- アプリのバージョンは `package.json` の `version` が基準。
+- `docs/reference/` は設計資料・調査資料の置き場。
+
+## ファイル操作について
+
+AGENTS.md の「読み取り手順」「書き込み手順」にある PowerShell スクリプトは、
+ファイル操作ツールを持たないエージェント向けの代替手段。
+Claude Code では組み込みの Read / Edit / Write ツールをそのまま使う（UTF-8 no BOM で書き込まれる）。
+ファイル検索は Glob / Grep（`rg` 相当）を使う。
+
+## 検証
+
+- フロントエンドや型に関わる変更後は、可能な限り `npm run build` を実行する。
+- バックエンド Python の単体ファイル変更では、可能な限り `py_compile` などで構文確認する。
+- 検証できなかった場合は、その理由を作業報告に書く。
+
+## リポジトリ内の大容量資産（コミット対象外）
+
+- `models/` — GGUF モデル（Gemma 4, ornith 9B）と Ruri 埋め込みモデルのキャッシュ。
+- `runtime/llama.cpp/` — llama.cpp のバイナリ・DLL 群。
+
+いずれも .gitignore 済み。削除・移動しない。

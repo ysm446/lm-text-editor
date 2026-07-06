@@ -1,0 +1,68 @@
+# plan.md — 実装方針と優先順位
+
+作成日時: 2026-07-07 07:09
+更新日時: 2026-07-07 07:14
+
+## 実装方針
+
+- フロント（Electron + React + TypeScript + TipTap）とバックエンド（FastAPI）を HTTP (localhost) で分離する。
+- LLM 呼び出しはすべて OpenAI 互換 `/v1/chat/completions`。執筆・校正はストリーミング。
+- 文書の正は TipTap JSON（`document.content_json`）。Markdown は書き出し用の派生。
+- 埋め込みは Ruri、検索は hybrid（sqlite-vec + FTS5）固定。
+- LangChain 等の重いフレームワークは使わない。
+- 各フェーズの終わりで「動くもの」を維持する（フェーズ 1 完了時点で LLM なしのエディタとして使える状態にする）。
+
+## フェーズ（spec.md §12 準拠）
+
+### フェーズ 1: エディタ基盤 ← 最優先
+
+- [ ] プロジェクト雛形: Electron + Vite + React + TypeScript のセットアップ、`package.json` 整備
+- [ ] TipTap エディタ（StarterKit + tiptap-markdown）
+- [ ] 画像挿入（ワークスペースディレクトリ配下に保存、相対パス参照、`asset` 登録）
+- [ ] ワークスペース / 文書管理（サイドバー、DocTree）
+- [ ] SQLite 永続化（`workspace` / `document` / `asset` テーブル、自動保存）
+- [ ] FastAPI 雛形とワークスペース / 文書 CRUD API
+
+### フェーズ 2: LLM 接続と校正
+
+- [ ] llama.cpp（Gemma 4, :8080）接続クライアントとタスクルータ
+- [ ] 執筆支援（続き生成・セクション生成、ストリーミング表示）
+- [ ] インライン校正（diff-match-patch、accept/reject）
+- [ ] 分割ビュー校正（左右分割、段落対応付け、段落ごと accept/reject）
+- [ ] 切り替えしきい値の設定（デフォルト: 2 段落以上で分割ビュー）
+
+### フェーズ 3: RAG
+
+- [ ] Ruri 埋め込み + sqlite-vec + FTS5 の hybrid search（mem-chat のレイヤーを流用）
+- [ ] `rag_chunk` / `source_note` テーブルとスコープ規則（ワークスペース + グローバル）
+- [ ] 過去記事アーカイブ・リファレンスの投入（グローバル知識ベース）
+- [ ] 執筆時の RAG コンテキスト供給（`use_rag` トグル）
+
+### フェーズ 4: Web 検索
+
+- [ ] ornith 9B（:8081）接続と `<think>` パーサ（news-desk の処理を流用）
+- [ ] 検索 API 接続（Tavily 第一候補。SearXNG / Brave をフォールバック候補として検討）
+- [ ] httpx 取得 → trafilatura 本文抽出 → ornith 要約
+- [ ] 二層保存（原文チャンク + ソースノート、`source_url` / `fetched_at` 必須）
+
+### フェーズ 5: 仕上げ
+
+- [ ] 出典管理（記事内で参照したソースの一覧化）
+- [ ] 設定画面（しきい値・モデル切替・検索 API キー）
+- [ ] Markdown 書き出し
+- [ ] Gemma 4 マルチモーダル活用（画像キャプション案・図の説明文生成）
+
+## 決定済み事項
+
+- Gemma 4 のサイズ: **26B A4B (MoE), Q4_K_M** を採用（2026-07-07 決定。`models/gemma-4-26B-A4B-it-GGUF/` に配置済み）。
+
+## 技術上の未確定事項
+
+- diff ライブラリ: diff-match-patch を第一候補とし、必要なら jsdiff を併用。
+- Web 検索 API の最終選定（Tavily の無料枠 / 課金条件を確認してから確定）。
+- function calling の導入時期（安定後に段階的に検討。初期は不使用）。
+
+## 将来拡張（本計画の外）
+
+- WordPress MCP 連携（公開フロー）。
+- クラウド同期 / マルチユーザー。

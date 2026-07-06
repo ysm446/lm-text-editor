@@ -1,0 +1,44 @@
+# IDE設定
+.vscode/
+.idea/
+*.code-workspace
+
+# 大容量資産（ローカル配置のみ）
+models/
+runtime/
+
+# Node / Electron
+node_modules/
+dist/
+dist-electron/
+out/
+release/
+*.tsbuildinfo
+npm-debug.log*
+
+# Python (backend)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# データベース / ローカルデータ
+*.sqlite
+*.sqlite3
+*.db
+
+# 環境変数・秘密情報
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ログ
+*.log
+logs/
