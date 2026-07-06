@@ -347,12 +347,13 @@ export default function Editor({ docId, initialContent, onSave }: EditorProps) {
     })
   }
 
-  const assistSection = (instruction: string) => {
+  const assistSection = (instruction: string, useRag: boolean) => {
     const ed = editorRef.current
     if (!ed) return
     void runAssist('/generate/section', {
       doc_id: docId,
       instruction,
+      use_rag: useRag,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       document_md: (ed.storage as any).markdown.getMarkdown() as string,
     })

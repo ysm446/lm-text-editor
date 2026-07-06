@@ -9,7 +9,7 @@ export interface AssistState {
 interface AssistPanelProps {
   assist: AssistState | null // null = 生成前（入力待ち）
   onContinue: () => void
-  onGenerateSection: (instruction: string) => void
+  onGenerateSection: (instruction: string, useRag: boolean) => void
   onInsert: () => void
   onClose: () => void
 }
@@ -22,6 +22,7 @@ export default function AssistPanel({
   onClose,
 }: AssistPanelProps) {
   const [instruction, setInstruction] = useState('')
+  const [useRag, setUseRag] = useState(false)
   const streaming = assist?.status === 'streaming'
 
   return (
@@ -47,17 +48,26 @@ export default function AssistPanel({
           onChange={(e) => setInstruction(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && instruction.trim() && !streaming) {
-              onGenerateSection(instruction.trim())
+              onGenerateSection(instruction.trim(), useRag)
             }
           }}
           disabled={streaming}
         />
         <button
           disabled={streaming || !instruction.trim()}
-          onClick={() => onGenerateSection(instruction.trim())}
+          onClick={() => onGenerateSection(instruction.trim(), useRag)}
         >
           指示から生成
         </button>
+        <label className="assist-rag-toggle" title="RAG（過去記事・リファレンス・Web 取得資料）を検索して文脈に含めます">
+          <input
+            type="checkbox"
+            checked={useRag}
+            onChange={(e) => setUseRag(e.target.checked)}
+            disabled={streaming}
+          />
+          RAG
+        </label>
       </div>
       {assist && (
         <div className="assist-panel-output">

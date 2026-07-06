@@ -1,11 +1,11 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 08:14
+更新日時: 2026-07-07 08:24
 
 ## 現在の状態
 
-**フェーズ 2（LLM 接続と校正）実装完了**。インライン校正・執筆支援・分割ビュー校正がすべて API レベルで動作確認済み。UI の手動確認を経てフェーズ 3（RAG）へ。
+**フェーズ 3（RAG）実装完了**。hybrid search（Ruri + sqlite-vec + FTS5）と執筆時の RAG コンテキスト供給まで動作確認済み。残りは過去記事の実データ投入のみ。次はフェーズ 4（Web 検索）。
 
 ## 完了済み
 
@@ -59,10 +59,20 @@
   - start-llm.bat で外部起動した場合は「外部起動の LLM」と表示し、アプリからは停止しない。
   - 検証: API 経由で起動 → loading → ready → 校正実行 → 停止（プロセス消滅）まで実測。
 
+- 2026-07-07 フェーズ 3 RAG:
+  - `backend/rag/embed.py`: Ruri v3 310m（sentence-transformers、キャッシュは `models/embeddings/`、クエリ/文書プレフィックス）。起動時にバックグラウンドで warmup。
+  - `backend/rag/store.py`: `rag_chunk` / `source_note` + FTS5（trigram）+ vec0（FLOAT[768]）。段落境界優先の約 800 字チャンク。
+  - `backend/rag/search.py`: hybrid search（FTS5 + ベクトル距離を RRF k=60 で融合）。スコープ = 現在のワークスペース + グローバル。
+  - API: `POST /rag/search`（chunks + notes を返す。notes はフェーズ 4 から）、`POST /rag/ingest`。
+  - 一括投入 CLI: `python -m backend.rag.ingest_dir <dir> --source-type article`。
+  - 執筆支援パネルに「RAG」チェックボックス → セクション生成時に hybrid search 上位 5 件をプロンプトへ。
+  - 検証: 2 文書 ingest → 意味的クエリ 2 種で正しい文書が 1 位（約 0.1 秒）→ use_rag 生成が資料の手順を忠実に反映（約 1 秒）。
+
 ## 未完了（次にやること）
 
-- UI の手動確認: 執筆・保存・画像ペースト・インライン校正・執筆支援・分割ビュー校正の一連操作。
-- フェーズ 3: RAG（Ruri + sqlite-vec + FTS5 の hybrid search、mem-chat 流用、過去記事の投入）。
+- UI の手動確認: 執筆・保存・画像ペースト・インライン校正・執筆支援（RAG トグル含む）・分割ビュー校正の一連操作。
+- 過去記事アーカイブ・リファレンスの実データ投入（`ingest_dir` CLI で。アーカイブの場所をユーザーに確認）。
+- フェーズ 4: Web 検索（ornith 9B :8081、`<think>` パーサ、Tavily、trafilatura、二層保存）。
 - 既知の制限: 分割ビュー校正はリスト内・引用内の段落を対象にしない（トップレベルのみ）。左ペインは読み取り専用（spec は編集可能を想定）。必要になったら拡張。
 
 ## 注意点

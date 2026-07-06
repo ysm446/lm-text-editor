@@ -406,6 +406,16 @@ body {
   cursor: default;
 }
 
+.assist-rag-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85em;
+  color: #59636e;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
 .assist-panel-output {
   padding: 12px 16px;
   line-height: 1.8;

@@ -3,9 +3,11 @@
 起動: .venv\\Scripts\\python.exe -m uvicorn backend.main:app --port 8000
 """
 
+import asyncio
 import base64
 import binascii
 import json
+import threading
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -22,11 +24,17 @@ from backend.db import models
 from backend.llm import client as llm_client
 from backend.llm import manager as llm_manager
 from backend.llm import prompts
+from backend.rag import embed as rag_embed
+from backend.rag import search as rag_search
+from backend.rag import store as rag_store
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     models.init_db()
+    rag_store.init_rag_schema()
+    # 埋め込みモデルのロードは重いのでバックグラウンドで温める
+    threading.Thread(target=rag_embed.warmup, daemon=True).start()
     yield
 
 
@@ -75,6 +83,19 @@ class GenerateSectionRequest(BaseModel):
     instruction: str
     document_md: str | None = None
     use_rag: bool = False  # フェーズ 3 で実装。現状は無視される
+
+
+class RagSearchRequest(BaseModel):
+    query: str
+    workspace_id: int | None = None
+    top_k: int = 5
+
+
+class RagIngestRequest(BaseModel):
+    source_type: str  # 'article' | 'reference' | 'web'
+    content: str
+    workspace_id: int | None = None
+    source_url: str | None = None
 
 
 class ReviewInlineRequest(BaseModel):
@@ -181,6 +202,29 @@ async def _require_llm(task: str) -> dict:
     return cfg
 
 
+@app.post("/rag/search")
+def rag_search_endpoint(body: RagSearchRequest) -> dict[str, Any]:
+    if not body.query.strip():
+        raise HTTPException(status_code=400, detail="query is required")
+    chunks = rag_search.hybrid_search(body.query, body.workspace_id, body.top_k)
+    return {"chunks": chunks, "notes": []}  # notes はフェーズ 4（ソースノート）で実装
+
+
+@app.post("/rag/ingest")
+def rag_ingest_endpoint(body: RagIngestRequest) -> dict[str, Any]:
+    if body.source_type not in ("article", "reference", "web"):
+        raise HTTPException(status_code=400, detail="invalid source_type")
+    if not body.content.strip():
+        raise HTTPException(status_code=400, detail="content is required")
+    chunk_ids = rag_store.ingest(
+        body.source_type,
+        body.content,
+        workspace_id=body.workspace_id,
+        source_url=body.source_url,
+    )
+    return {"ok": True, "chunk_ids": chunk_ids}
+
+
 @app.post("/generate/continue")
 async def generate_continue(body: GenerateContinueRequest) -> StreamingResponse:
     """カーソル位置からの続き生成。Markdown を平文でストリーム返却。"""
@@ -202,7 +246,23 @@ async def generate_section(body: GenerateSectionRequest) -> StreamingResponse:
     if not body.instruction.strip():
         raise HTTPException(status_code=400, detail="instruction is required")
     cfg = await _require_llm("generate")
-    messages = prompts.build_section_messages(body.instruction, body.document_md)
+
+    rag_context: str | None = None
+    if body.use_rag:
+        workspace_id: int | None = None
+        if body.doc_id is not None:
+            doc = models.get_doc(body.doc_id)
+            if doc:
+                workspace_id = doc["workspace_id"]
+        # 埋め込み計算はブロッキングなのでスレッドに逃がす
+        results = await asyncio.to_thread(
+            rag_search.hybrid_search, body.instruction, workspace_id, 5
+        )
+        rag_context = rag_search.build_rag_context(results) or None
+
+    messages = prompts.build_section_messages(
+        body.instruction, body.document_md, rag_context
+    )
     return StreamingResponse(
         llm_client.stream_chat(
             cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=2048

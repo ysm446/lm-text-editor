@@ -51,8 +51,11 @@ def build_continue_messages(
 def build_section_messages(
     instruction: str,
     document_md: str | None = None,
+    rag_context: str | None = None,
 ) -> list[Message]:
     parts = []
+    if rag_context:
+        parts.append(f"## 参考資料（RAG 検索結果）\n{rag_context}")
     if document_md:
         parts.append(f"## 記事の現状（参考）\n{document_md}")
     parts.append(f"## 指示\n{instruction}")

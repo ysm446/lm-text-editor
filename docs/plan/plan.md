@@ -1,7 +1,7 @@
 # plan.md — 実装方針と優先順位
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 08:05
+更新日時: 2026-07-07 08:24
 
 ## 実装方針
 
@@ -33,10 +33,10 @@
 
 ### フェーズ 3: RAG
 
-- [ ] Ruri 埋め込み + sqlite-vec + FTS5 の hybrid search（mem-chat のレイヤーを流用）
-- [ ] `rag_chunk` / `source_note` テーブルとスコープ規則（ワークスペース + グローバル）
-- [ ] 過去記事アーカイブ・リファレンスの投入（グローバル知識ベース）
-- [ ] 執筆時の RAG コンテキスト供給（`use_rag` トグル）
+- [x] Ruri 埋め込み + sqlite-vec + FTS5 の hybrid search（lm-chat の memory レイヤーを流用。RRF 融合、trigram トークナイザ）
+- [x] `rag_chunk` / `source_note` テーブルとスコープ規則（ワークスペース + グローバル）
+- [ ] 過去記事アーカイブ・リファレンスの投入（CLI は用意済み: `python -m backend.rag.ingest_dir <dir>`。実データの投入はアーカイブの場所が分かり次第）
+- [x] 執筆時の RAG コンテキスト供給（執筆支援パネルの「RAG」チェックボックス）
 
 ### フェーズ 4: Web 検索
 
