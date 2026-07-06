@@ -16,15 +16,13 @@ from typing import Any
 
 import httpx
 
-from backend import config
-from backend.db.models import DATA_DIR
+from backend import config, paths
 
 logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 LLAMA_EXE = ROOT_DIR / "runtime" / "llama.cpp" / "llama-server.exe"
 MODELS_DIR = ROOT_DIR / "models"
-STATE_FILE = DATA_DIR / "llama_runtime.json"
 
 LLAMA_HOST = "127.0.0.1"
 LLAMA_PORT = int(config.GEMMA_BASE_URL.rsplit(":", 1)[-1].split("/")[0])
@@ -42,17 +40,19 @@ SERVER_ARGS = [
 
 
 def _load_state() -> dict[str, Any]:
-    if STATE_FILE.exists():
+    state_file = paths.llama_runtime_path()
+    if state_file.exists():
         try:
-            return json.loads(STATE_FILE.read_text("utf-8"))
+            return json.loads(state_file.read_text("utf-8"))
         except Exception as exc:
-            logger.warning("failed to read %s: %s", STATE_FILE, exc)
+            logger.warning("failed to read %s: %s", state_file, exc)
     return {}
 
 
 def _save_state(state: dict[str, Any]) -> None:
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), "utf-8")
+    paths.llama_runtime_path().write_text(
+        json.dumps(state, indent=2, ensure_ascii=False), "utf-8"
+    )
 
 
 def list_local_models() -> list[dict[str, Any]]:

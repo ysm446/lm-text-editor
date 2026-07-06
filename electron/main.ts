@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import path from 'node:path'
 
 // vite-plugin-electron が dev 時に設定する環境変数
@@ -29,7 +29,28 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  ipcMain.handle(
+    'lm-editor:choose-library-folder',
+    async (_event, mode?: 'open' | 'create') => {
+      const focused = BrowserWindow.getFocusedWindow()
+      const options = {
+        title: mode === 'create' ? '新しいライブラリの場所を選択' : 'ライブラリを開く',
+        buttonLabel: mode === 'create' ? 'ここに作成' : '開く',
+        properties: ['openDirectory', 'createDirectory'] as Array<
+          'openDirectory' | 'createDirectory'
+        >,
+        defaultPath: app.getPath('documents'),
+      }
+      const result = focused
+        ? await dialog.showOpenDialog(focused, options)
+        : await dialog.showOpenDialog(options)
+      return result.canceled ? null : (result.filePaths[0] ?? null)
+    },
+  )
+
+  createWindow()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

@@ -9,5 +9,6 @@ interface Window {
       electron: string
       node: string
     }
+    chooseLibraryFolder: (mode?: 'open' | 'create') => Promise<string | null>
   }
 }

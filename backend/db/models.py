@@ -7,10 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "data"
-DB_PATH = DATA_DIR / "lm-editor.sqlite3"
-WORKSPACE_FILES_DIR = DATA_DIR / "workspaces"
+from backend import paths
+
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
 EMPTY_DOC: dict[str, Any] = {"type": "doc", "content": [{"type": "paragraph"}]}
@@ -22,8 +20,8 @@ def _now() -> str:
 
 @contextmanager
 def get_conn() -> Iterator[sqlite3.Connection]:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    # paths.db_path() がアクティブなライブラリ配下を指す（切り替え対応のため毎回解決）
+    conn = sqlite3.connect(paths.db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     try:

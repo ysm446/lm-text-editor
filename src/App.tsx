@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Sidebar from './workspace/Sidebar'
 import Editor from './editor/Editor'
 import ModelBar from './ModelBar'
+import LibrarySwitcher from './LibrarySwitcher'
 import { api, type Doc, type DocMeta, type Workspace } from './api/client'
 
 export default function App() {
@@ -79,9 +80,20 @@ export default function App() {
     }
   }, [currentDoc, currentWsId, titleDraft])
 
+  // ライブラリ切替後は選択状態を捨てて全リロード
+  const handleLibrarySwitched = useCallback(() => {
+    setCurrentWsId(null)
+    setDocs([])
+    setCurrentDoc(null)
+    void refreshWorkspaces()
+  }, [refreshWorkspaces])
+
   return (
     <div className="app">
-      <ModelBar />
+      <div className="top-bar">
+        <LibrarySwitcher onSwitched={handleLibrarySwitched} />
+        <ModelBar />
+      </div>
       <div className="app-body">
         <Sidebar
         workspaces={workspaces}

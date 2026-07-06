@@ -10,7 +10,7 @@ from typing import Any, Iterator
 
 import sqlite_vec
 
-from backend.db.models import DATA_DIR, DB_PATH
+from backend import paths
 from backend.rag.embed import EMBED_DIM, embed_document
 
 
@@ -21,8 +21,7 @@ def _now() -> str:
 @contextmanager
 def connect() -> Iterator[sqlite3.Connection]:
     """sqlite-vec をロードした接続（RAG 系のテーブルはこの接続で扱う）。"""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(paths.db_path())
     conn.row_factory = sqlite3.Row
     conn.enable_load_extension(True)
     sqlite_vec.load(conn)

@@ -15,11 +15,10 @@ from typing import Any, AsyncIterator
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from backend import router
+from backend import library, paths, router
 from backend.db import models
 from backend.llm import client as llm_client
 from backend.llm import manager as llm_manager
@@ -49,8 +48,17 @@ app.add_middleware(
 )
 
 # 画像などワークスペース配下のファイル配信: /files/{workspace_id}/images/xxx.png
-models.WORKSPACE_FILES_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/files", StaticFiles(directory=models.WORKSPACE_FILES_DIR), name="files")
+# StaticFiles はマウント時にディレクトリが固定されるため、ライブラリ切り替えに
+# 対応できるよう動的に解決する。
+@app.get("/files/{file_path:path}")
+def serve_workspace_file(file_path: str) -> FileResponse:
+    base = paths.workspace_files_dir().resolve()
+    target = (base / file_path).resolve()
+    if base not in target.parents:
+        raise HTTPException(status_code=400, detail="invalid path")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="file not found")
+    return FileResponse(target)
 
 
 class WorkspaceCreate(BaseModel):
@@ -70,6 +78,10 @@ class DocUpdate(BaseModel):
 
 class LlamaSwitchRequest(BaseModel):
     model_path: str
+
+
+class LibraryPathRequest(BaseModel):
+    path: str
 
 
 class GenerateContinueRequest(BaseModel):
@@ -167,6 +179,54 @@ def update_doc(doc_id: int, body: DocUpdate) -> dict[str, bool]:
     if not ok:
         raise HTTPException(status_code=404, detail="document not found")
     return {"ok": True}
+
+
+def _library_state() -> dict[str, Any]:
+    return {
+        "active": library.get_active_path(),
+        "libraries": library.list_libraries(),
+    }
+
+
+def _activate_library(path: Path) -> None:
+    """ライブラリを差し替え、スキーマ初期化に成功したらレジストリへ記録する。"""
+    previous = paths.library_root()
+    paths.set_library_root(path)
+    try:
+        models.init_db()
+        rag_store.init_rag_schema()
+    except Exception:
+        paths.set_library_root(previous)  # 壊れたライブラリへ向けたままにしない
+        raise
+    library.set_active(str(path))
+
+
+@app.get("/library")
+def get_library_state() -> dict[str, Any]:
+    return _library_state()
+
+
+@app.post("/library/switch")
+def switch_library(body: LibraryPathRequest) -> dict[str, Any]:
+    p = Path(body.path).expanduser()
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="ライブラリのフォルダが見つかりません")
+    if not p.is_dir():
+        raise HTTPException(status_code=400, detail="ライブラリはフォルダを指定してください")
+    _activate_library(p.resolve())
+    return _library_state()
+
+
+@app.post("/library/create")
+def create_library(body: LibraryPathRequest) -> dict[str, Any]:
+    p = Path(body.path).expanduser()
+    if p.exists() and not p.is_dir():
+        raise HTTPException(status_code=400, detail="同名のファイルが既に存在します")
+    if (p / "lm-editor.sqlite3").exists():
+        raise HTTPException(status_code=409, detail="そのフォルダには既にライブラリが存在します")
+    p.mkdir(parents=True, exist_ok=True)
+    _activate_library(p.resolve())
+    return _library_state()
 
 
 @app.get("/models/local")
@@ -334,7 +394,7 @@ def create_asset(body: AssetCreate) -> dict[str, Any]:
     workspace_id = doc["workspace_id"]
     rel_path = f"images/{name}"
 
-    img_dir = models.WORKSPACE_FILES_DIR / str(workspace_id) / "images"
+    img_dir = paths.workspace_files_dir() / str(workspace_id) / "images"
     img_dir.mkdir(parents=True, exist_ok=True)
     (img_dir / name).write_bytes(data)
 

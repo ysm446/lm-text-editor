@@ -43,6 +43,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export interface Library {
+  path: string
+  name: string
+  exists: boolean
+  active: boolean
+}
+
+export interface LibraryState {
+  active: string
+  libraries: Library[]
+}
+
 export interface LocalModel {
   id: string
   path: string
@@ -111,6 +123,20 @@ export const api = {
     request<{ ok: boolean }>(`/docs/${docId}`, {
       method: 'PUT',
       body: JSON.stringify(body),
+    }),
+
+  libraryState: () => request<LibraryState>('/library'),
+
+  librarySwitch: (path: string) =>
+    request<LibraryState>('/library/switch', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    }),
+
+  libraryCreate: (path: string) =>
+    request<LibraryState>('/library/create', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
     }),
 
   listLocalModels: () => request<LocalModel[]>('/models/local'),
