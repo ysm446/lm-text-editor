@@ -65,14 +65,33 @@ interface SectionHeadProps {
   addTitle: string
   addDisabled?: boolean
   onAdd: () => void
+  // フォルダのように開閉する場合に指定（見出しクリックでトグル）
+  expanded?: boolean
+  onToggle?: () => void
 }
 
-// セクション見出し + 右端の「＋」追加ボタン
-function SectionHead({ label, level, addTitle, addDisabled, onAdd }: SectionHeadProps) {
+// セクション見出し + 右端の「＋」追加ボタン。expanded 指定時は開閉トグルになる
+function SectionHead({
+  label,
+  level,
+  addTitle,
+  addDisabled,
+  onAdd,
+  expanded,
+  onToggle,
+}: SectionHeadProps) {
   const Tag = level === 2 ? 'h2' : 'h3'
+  const collapsible = expanded !== undefined
   return (
     <Tag className="section-head">
-      <span>{label}</span>
+      {collapsible ? (
+        <button className="section-toggle" onClick={onToggle}>
+          <span className="ws-caret">{expanded ? '▾' : '▸'}</span>
+          {label}
+        </button>
+      ) : (
+        <span>{label}</span>
+      )}
       <button
         className="section-add"
         title={addTitle}
@@ -261,6 +280,31 @@ export default function Sidebar({
   useEffect(() => {
     setExpandedId(currentWorkspaceId)
   }, [currentWorkspaceId])
+
+  // 配下セクション（ドキュメント / 資料 / 画像）のフォルダ開閉。既定は全て開・localStorage に記憶
+  type SectionKey = 'docs' | 'sources' | 'images'
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem('lm-sidebar-sections')
+      if (raw) return { docs: true, sources: true, images: true, ...JSON.parse(raw) }
+    } catch {
+      /* 壊れた保存値は無視 */
+    }
+    return { docs: true, sources: true, images: true }
+  })
+  const toggleSection = (key: SectionKey) =>
+    setOpenSections((s) => {
+      const next = { ...s, [key]: !s[key] }
+      localStorage.setItem('lm-sidebar-sections', JSON.stringify(next))
+      return next
+    })
+  const openSection = (key: SectionKey) =>
+    setOpenSections((s) => {
+      if (s[key]) return s
+      const next = { ...s, [key]: true }
+      localStorage.setItem('lm-sidebar-sections', JSON.stringify(next))
+      return next
+    })
   // 選択中ワークスペースの配下ツリー（ドキュメント / 資料 / 画像）
   const renderChildren = () => (
     <li className="ws-children">
@@ -269,27 +313,36 @@ export default function Sidebar({
           label="ドキュメント"
           level={3}
           addTitle="新規ドキュメント"
-          onAdd={() => setCreating('doc')}
+          expanded={openSections.docs}
+          onToggle={() => toggleSection('docs')}
+          onAdd={() => {
+            openSection('docs')
+            setCreating('doc')
+          }}
         />
-        {creating === 'doc' && (
-          <NameInput
-            placeholder="新規ドキュメント名"
-            onSubmit={onCreateDoc}
-            onClose={() => setCreating(null)}
-          />
+        {openSections.docs && (
+          <>
+            {creating === 'doc' && (
+              <NameInput
+                placeholder="新規ドキュメント名"
+                onSubmit={onCreateDoc}
+                onClose={() => setCreating(null)}
+              />
+            )}
+            <ul>
+              {docs.map((doc) => (
+                <ItemRow
+                  key={doc.id}
+                  label={doc.title}
+                  selected={doc.id === currentDocId}
+                  onSelect={() => onSelectDoc(doc.id)}
+                  onRename={(title) => onRenameDoc(doc.id, title)}
+                  onDelete={() => onDeleteDoc(doc.id)}
+                />
+              ))}
+            </ul>
+          </>
         )}
-        <ul>
-          {docs.map((doc) => (
-            <ItemRow
-              key={doc.id}
-              label={doc.title}
-              selected={doc.id === currentDocId}
-              onSelect={() => onSelectDoc(doc.id)}
-              onRename={(title) => onRenameDoc(doc.id, title)}
-              onDelete={() => onDeleteDoc(doc.id)}
-            />
-          ))}
-        </ul>
       </div>
 
       <div className="sub-section">
@@ -297,32 +350,39 @@ export default function Sidebar({
           label="資料（RAG）"
           level={3}
           addTitle="テキスト / Markdown ファイルを追加"
-          onAdd={() => fileInputRef.current?.click()}
+          expanded={openSections.sources}
+          onToggle={() => toggleSection('sources')}
+          onAdd={() => {
+            openSection('sources')
+            fileInputRef.current?.click()
+          }}
         />
-        <ul>
-          {sources.map((s) => (
-            <li key={`${s.source_type}:${s.source_url ?? ''}`} className="item-row">
-              <button
-                className="source-item"
-                title={`${s.source_url ?? s.source_type}\n${s.chunk_count} チャンク${s.note_count > 0 ? ' + 要約ノート' : ''}\nクリックで内容を表示`}
-                onClick={() => onViewSource(s)}
-              >
-                <span className={`source-badge type-${s.source_type}`}>
-                  {s.source_type === 'web' ? 'W' : s.source_type === 'article' ? 'A' : 'R'}
-                </span>
-                <span className="source-name">{sourceLabel(s)}</span>
-                <span className="source-count">{s.chunk_count}</span>
-              </button>
-              <button
-                className="item-menu-btn"
-                title="この資料を削除"
-                onClick={() => onDeleteSource(s)}
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
+        {openSections.sources && (
+          <ul>
+            {sources.map((s) => (
+              <li key={`${s.source_type}:${s.source_url ?? ''}`} className="item-row">
+                <button
+                  className="source-item"
+                  title={`${s.source_url ?? s.source_type}\n${s.chunk_count} チャンク${s.note_count > 0 ? ' + 要約ノート' : ''}\nクリックで内容を表示`}
+                  onClick={() => onViewSource(s)}
+                >
+                  <span className={`source-badge type-${s.source_type}`}>
+                    {s.source_type === 'web' ? 'W' : s.source_type === 'article' ? 'A' : 'R'}
+                  </span>
+                  <span className="source-name">{sourceLabel(s)}</span>
+                  <span className="source-count">{s.chunk_count}</span>
+                </button>
+                <button
+                  className="item-menu-btn"
+                  title="この資料を削除"
+                  onClick={() => onDeleteSource(s)}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -346,7 +406,12 @@ export default function Sidebar({
               : 'ドキュメントを開くと画像を追加できます'
           }
           addDisabled={!canAddImages}
-          onAdd={() => imageInputRef.current?.click()}
+          expanded={openSections.images}
+          onToggle={() => toggleSection('images')}
+          onAdd={() => {
+            openSection('images')
+            imageInputRef.current?.click()
+          }}
         />
         <input
           ref={imageInputRef}
@@ -359,7 +424,7 @@ export default function Sidebar({
             e.target.value = ''
           }}
         />
-        {images.length > 0 && (
+        {openSections.images && images.length > 0 && (
           <div className="image-grid">
             {images.map((img) => (
               <div key={img.id} className="image-thumb-wrap">

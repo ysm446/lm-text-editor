@@ -720,11 +720,21 @@ select:focus-visible {
   width: 100%;
 }
 
-/* サイドバー行の「…」メニュー */
+/* サイドバー行: ハイライト（hover / 選択）は行全体が持ち、「…」も枠の中に収める */
 .item-row {
   position: relative;
   display: flex;
   align-items: center;
+  border-radius: var(--radius-m);
+  padding-right: 2px;
+}
+
+.item-row:hover {
+  background: var(--hover);
+}
+
+.item-row:has(.item.selected) {
+  background: var(--selected);
 }
 
 .item-row .item {
@@ -732,11 +742,22 @@ select:focus-visible {
   min-width: 0;
 }
 
+/* ハイライトは行が持つので、中のボタンは自前の背景を出さない */
+.item-row .item:hover {
+  background: none;
+}
+
+.item-row .item.selected {
+  background: none;
+}
+
 .item-menu-btn {
   visibility: hidden;
 }
 
-.item-row:hover .item-menu-btn {
+/* 「…」は行 hover 時と選択行で表示する（画像のように枠の中に出る） */
+.item-row:hover .item-menu-btn,
+.item-row:has(.item.selected) .item-menu-btn {
   visibility: visible;
 }
 
@@ -770,6 +791,30 @@ select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* フォルダ開閉トグル: 見出しのスタイルを継承しつつ、キャレット付きで全幅クリック可能に */
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  margin: -2px 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  border-radius: var(--radius-s);
+}
+
+.section-toggle:hover {
+  color: var(--text);
 }
 
 .section-add {
