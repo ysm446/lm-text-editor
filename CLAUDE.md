@@ -36,6 +36,7 @@ SQLite + sqlite-vec + FTS5（RAG・文書・ワークスペース）
 - 埋め込みは Ruri、検索は hybrid（sqlite-vec ベクトル + FTS5 全文）固定。
 - 文書の正は TipTap JSON（`content_json`）。Markdown は書き出し用の派生。
 - LangChain 等の重いフレームワークは使わない。RAG / Web 検索の発火はアプリ側が明示制御。
+- UI の見た目・新規コンポーネントは `docs/design/design-guidelines.md` に従う（色・寸法はトークン経由、外れる場合は先にガイドラインを更新）。
 
 ## 作業開始時の確認
 
