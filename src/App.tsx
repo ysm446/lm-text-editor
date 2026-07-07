@@ -6,7 +6,7 @@ import ModelBar from './ModelBar'
 import WebSearchPanel from './panels/WebSearchPanel'
 import SourceViewer from './panels/SourceViewer'
 import ImageLightbox from './panels/ImageLightbox'
-import ToastHost, { showToast } from './Toast'
+import { showToast } from './Toast'
 import StatusBar from './StatusBar'
 import SettingsModal from './settings/SettingsModal'
 import { GearIcon } from './icons'
@@ -549,7 +549,6 @@ export default function App() {
       </main>
       </div>
       <StatusBar visible={statusBarVisible} onToggle={toggleStatusBar} />
-      <ToastHost />
     </div>
   )
 }

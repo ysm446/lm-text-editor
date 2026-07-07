@@ -39,9 +39,39 @@ interface StatusBarProps {
   onToggle: () => void
 }
 
+const STATUS_MS = 2600
+
 // 下部リソースモニター（lm-chat の StatusBar を移植。表示中のみ 1 秒ポーリング）
 export default function StatusBar({ visible, onToggle }: StatusBarProps) {
   const [resources, setResources] = useState<SystemResources | null>(null)
+  // 左端の内部処理ステータス（コピー/貼り付け・保存・資料/画像追加など）を短時間表示
+  const [status, setStatus] = useState<string | null>(null)
+
+  useEffect(() => {
+    let timer: number | undefined
+    const show = (message: string) => {
+      setStatus(message)
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(() => setStatus(null), STATUS_MS)
+    }
+    const onStatus = (e: Event) =>
+      show((e as CustomEvent<{ message: string }>).detail.message)
+    // クリップボード操作（Ctrl+C/V/X・右クリックメニューの両方で発火）
+    const onCopy = () => show('コピーしました')
+    const onCut = () => show('切り取りました')
+    const onPaste = () => show('貼り付けました')
+    window.addEventListener('lm-editor:toast', onStatus)
+    document.addEventListener('copy', onCopy)
+    document.addEventListener('cut', onCut)
+    document.addEventListener('paste', onPaste)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+      window.removeEventListener('lm-editor:toast', onStatus)
+      document.removeEventListener('copy', onCopy)
+      document.removeEventListener('cut', onCut)
+      document.removeEventListener('paste', onPaste)
+    }
+  }, [])
 
   useEffect(() => {
     if (!visible) return
@@ -66,6 +96,7 @@ export default function StatusBar({ visible, onToggle }: StatusBarProps) {
 
   return (
     <footer className={`statusbar${visible ? '' : ' collapsed'}`}>
+      {status && <span className="statusbar-status">{status}</span>}
       {visible && (resources ? (
         <>
           <Meter
