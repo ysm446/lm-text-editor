@@ -22,7 +22,7 @@ export default function AssistPanel({
   onClose,
 }: AssistPanelProps) {
   const [instruction, setInstruction] = useState('')
-  const [useRag, setUseRag] = useState(false)
+  const [useRag, setUseRag] = useState(true) // 既定 ON（過去記事・資料を文脈に含める）
   const streaming = assist?.status === 'streaming'
 
   return (

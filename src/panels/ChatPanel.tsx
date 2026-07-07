@@ -80,7 +80,7 @@ export default function ChatPanel({
   onClose,
 }: ChatPanelProps) {
   const [input, setInput] = useState('')
-  const [useRag, setUseRag] = useState(false)
+  const [useRag, setUseRag] = useState(true) // 既定 ON（過去記事・資料を文脈に含める）
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   // 新しいトークン・メッセージが来たら末尾へスクロール
