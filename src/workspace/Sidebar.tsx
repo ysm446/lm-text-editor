@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { DocMeta, RagSource, Workspace, WorkspaceImage } from '../api/client'
 import LibrarySwitcher from '../LibrarySwitcher'
+import NewSourceEditor from '../panels/NewSourceEditor'
 
 // サイドバー幅（ドラッグで可変・localStorage に記憶）
 const WIDTH_KEY = 'lm-sidebar-width'
@@ -17,7 +18,8 @@ function initialWidth(): number {
 function sourceLabel(s: RagSource): string {
   if (!s.source_url) return `（${s.source_type}）`
   try {
-    if (s.source_url.startsWith('file://')) {
+    // 手動追加ノート（note:///<タイトル>）とファイル（file:///<名前>）は末尾を復号して表示
+    if (s.source_url.startsWith('note://') || s.source_url.startsWith('file://')) {
       return decodeURIComponent(s.source_url.split('/').pop() ?? s.source_url)
     }
     const u = new URL(s.source_url)
@@ -216,6 +218,8 @@ interface SidebarProps {
   onRenameDoc: (id: number, title: string) => void
   onDeleteDoc: (id: number) => void
   onAddSourceFiles: (files: FileList) => void
+  onCreateNote: (title: string, content: string) => Promise<void> // 手動追加（md → チャンク化）
+  onWebSearch: () => void // Web 検索パネルを開く
   onViewSource: (source: RagSource) => void
   onDeleteSource: (source: RagSource) => void
   canAddImages: boolean // 画像はドキュメントに紐づくため、ドキュメントを開いているときのみ
@@ -241,6 +245,8 @@ export default function Sidebar({
   onRenameDoc,
   onDeleteDoc,
   onAddSourceFiles,
+  onCreateNote,
+  onWebSearch,
   onViewSource,
   onDeleteSource,
   canAddImages,
@@ -308,6 +314,21 @@ export default function Sidebar({
       localStorage.setItem('lm-sidebar-sections', JSON.stringify(next))
       return next
     })
+
+  // 資料（RAG）の＋メニュー（新規追加 / ファイル読み込み / ウェブ検索）と手動追加エディタ
+  const [sourceMenuOpen, setSourceMenuOpen] = useState(false)
+  const [noteEditorOpen, setNoteEditorOpen] = useState(false)
+  const sourceMenuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!sourceMenuOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (sourceMenuRef.current && !sourceMenuRef.current.contains(e.target as Node)) {
+        setSourceMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [sourceMenuOpen])
   // 選択中ワークスペースの配下ツリー（ドキュメント / 資料 / 画像）
   const renderChildren = () => (
     <li className="ws-children">
@@ -349,17 +370,45 @@ export default function Sidebar({
       </div>
 
       <div className="sub-section">
-        <SectionHead
-          label="資料（RAG）"
-          level={3}
-          addTitle="テキスト / Markdown ファイルを追加"
-          expanded={openSections.sources}
-          onToggle={() => toggleSection('sources')}
-          onAdd={() => {
-            openSection('sources')
-            fileInputRef.current?.click()
-          }}
-        />
+        <div className="source-add-anchor" ref={sourceMenuRef}>
+          <SectionHead
+            label="資料（RAG）"
+            level={3}
+            addTitle="資料を追加（新規 / ファイル / Web 検索）"
+            expanded={openSections.sources}
+            onToggle={() => toggleSection('sources')}
+            onAdd={() => setSourceMenuOpen((v) => !v)}
+          />
+          {sourceMenuOpen && (
+            <div className="source-add-menu">
+              <button
+                onClick={() => {
+                  setSourceMenuOpen(false)
+                  setNoteEditorOpen(true)
+                }}
+              >
+                新規追加（Markdown を書く）
+              </button>
+              <button
+                onClick={() => {
+                  setSourceMenuOpen(false)
+                  openSection('sources')
+                  fileInputRef.current?.click()
+                }}
+              >
+                ファイル読み込み
+              </button>
+              <button
+                onClick={() => {
+                  setSourceMenuOpen(false)
+                  onWebSearch()
+                }}
+              >
+                ウェブ検索
+              </button>
+            </div>
+          )}
+        </div>
         {openSections.sources && (
           <ul>
             {sources.map((s) => (
@@ -510,6 +559,15 @@ export default function Sidebar({
       onPointerUp={onResizeUp}
       title="ドラッグで幅を変更"
     />
+    {noteEditorOpen && (
+      <NewSourceEditor
+        onSave={async (title, content) => {
+          await onCreateNote(title, content)
+          openSection('sources')
+        }}
+        onClose={() => setNoteEditorOpen(false)}
+      />
+    )}
     </div>
   )
 }

@@ -9,7 +9,7 @@ import ImageLightbox from './panels/ImageLightbox'
 import ToastHost, { showToast } from './Toast'
 import StatusBar from './StatusBar'
 import SettingsModal from './settings/SettingsModal'
-import { GearIcon, SearchIcon } from './icons'
+import { GearIcon } from './icons'
 import {
   api,
   type AppSettings,
@@ -271,6 +271,21 @@ export default function App() {
     [currentWsId, refreshWorkspaceAssets],
   )
 
+  const createNote = useCallback(
+    async (title: string, content: string) => {
+      if (currentWsId == null) return
+      await api.ragIngest({
+        source_type: 'reference',
+        content,
+        workspace_id: currentWsId,
+        source_url: `note:///${encodeURIComponent(title)}`,
+      })
+      showToast('資料を追加しました（チャンク化済み）')
+      void refreshWorkspaceAssets(currentWsId)
+    },
+    [currentWsId, refreshWorkspaceAssets],
+  )
+
   const deleteSource = useCallback(
     async (source: RagSource) => {
       if (currentWsId == null) return
@@ -326,15 +341,7 @@ export default function App() {
   return (
     <div className="app">
       <div className="top-bar">
-        <div className="top-bar-left">
-          <button
-            className="web-search-toggle"
-            onClick={() => setWebSearchOpen(true)}
-            title="Web 検索して資料を取り込む（原文チャンク + 要約ノート）"
-          >
-            <SearchIcon /> Web 検索
-          </button>
-        </div>
+        <div className="top-bar-left" />
         <div className="top-bar-center">
           <ModelBar />
         </div>
@@ -392,6 +399,8 @@ export default function App() {
         onRenameDoc={(id, title) => void renameDoc(id, title)}
         onDeleteDoc={(id) => void deleteDoc(id)}
         onAddSourceFiles={(files) => void addSourceFiles(files)}
+        onCreateNote={createNote}
+        onWebSearch={() => setWebSearchOpen(true)}
         onViewSource={setViewingSource}
         onDeleteSource={(s) => void deleteSource(s)}
         canAddImages={currentDoc != null}

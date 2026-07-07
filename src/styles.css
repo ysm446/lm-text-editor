@@ -199,6 +199,7 @@ select:focus-visible {
 .settings-panel select,
 .source-viewer-header button,
 .lightbox-actions button,
+.note-editor-actions button,
 .backend-banner button {
   padding: 3px 12px;
   border: 1px solid var(--border);
@@ -223,6 +224,7 @@ select:focus-visible {
 .settings-inline button:hover:not(:disabled),
 .source-viewer-header button:hover:not(:disabled),
 .lightbox-actions button:hover:not(:disabled),
+.note-editor-actions button:hover:not(:disabled),
 .backend-banner button:hover:not(:disabled) {
   background: var(--hover);
 }
@@ -233,6 +235,7 @@ select:focus-visible {
 .split-review-actions button:disabled,
 .split-row-actions button:disabled,
 .settings-inline button:disabled,
+.note-editor-actions button:disabled,
 .web-result-actions button:disabled {
   color: var(--faint);
   cursor: default;
@@ -247,6 +250,7 @@ select:focus-visible {
 .revision-panel-actions button.primary,
 .draft-banner-actions button.primary,
 .lightbox-actions button.primary:not(:disabled),
+.note-editor-actions button.primary:not(:disabled),
 .web-search-form button:not(:disabled) {
   background: var(--primary);
   border-color: var(--primary);
@@ -262,6 +266,7 @@ select:focus-visible {
 .revision-panel-actions button.primary:hover,
 .draft-banner-actions button.primary:hover,
 .lightbox-actions button.primary:not(:disabled):hover,
+.note-editor-actions button.primary:not(:disabled):hover,
 .web-search-form button:not(:disabled):hover {
   filter: brightness(1.08);
 }
@@ -916,6 +921,94 @@ select:focus-visible {
 .section-add:disabled {
   color: var(--faint);
   cursor: default;
+}
+
+/* 資料（RAG）の＋メニュー: 見出し直下に開くドロップダウン */
+.source-add-anchor {
+  position: relative;
+}
+
+.source-add-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 0;
+  z-index: 150;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+}
+
+.source-add-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: var(--radius-m);
+  font-size: var(--fs-ui);
+  white-space: nowrap;
+}
+
+.source-add-menu button:hover {
+  background: var(--hover);
+}
+
+/* 資料の手動追加エディタ（モーダル） */
+.note-editor {
+  background: var(--surface);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: min(760px, calc(100vw - 64px));
+  height: min(600px, calc(100vh - 120px));
+}
+
+.note-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.note-editor-title {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 4px 2px;
+  outline: none;
+}
+
+.note-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.note-editor-textarea {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 16px 18px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, 'Consolas', 'Yu Gothic UI', monospace;
+  font-size: 14px;
+  line-height: 1.8;
 }
 
 /* サイドバー: 資料（RAG）セクション。ボタンの既定枠を消して普通のテキスト行に */
