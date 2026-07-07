@@ -418,11 +418,11 @@ body {
   align-items: center;
   justify-content: flex-end;
   gap: 16px;
-  padding: 1px 16px;
+  padding: 4px 16px;
   background: var(--bar-bg);
   color: #e6edf3;
-  font-size: 0.7em;
-  line-height: 1.4;
+  font-size: 0.75em;
+  line-height: 1.5;
   flex-shrink: 0;
   border-top: 1px solid #3d444d;
 }
@@ -441,8 +441,8 @@ body {
 
 .statusbar-meter-track {
   width: 72px;
-  height: 4px;
-  border-radius: 2px;
+  height: 5px;
+  border-radius: 2.5px;
   background: #2a3139;
   overflow: hidden;
 }
