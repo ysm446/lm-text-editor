@@ -84,6 +84,12 @@ export interface WebIngestResult {
   summary: string | null
 }
 
+export interface AppSettings {
+  theme: string // 'light' | 'dark'（今後パターン追加予定）
+  editor_font_size: number
+  tavily_api_key: string
+}
+
 export interface GpuStat {
   name: string
   gpu_percent: number
@@ -234,6 +240,14 @@ export const api = {
     request<{ status: string }>('/llama/eject', { method: 'POST' }),
 
   systemResources: () => request<SystemResources>('/system/resources'),
+
+  getSettings: () => request<AppSettings>('/settings'),
+
+  updateSettings: (patch: Partial<AppSettings>) =>
+    request<AppSettings>('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    }),
 
   ornithStatus: () => request<LlamaStatus>('/ornith/status'),
 

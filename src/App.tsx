@@ -5,7 +5,23 @@ import ModelBar from './ModelBar'
 import LibrarySwitcher from './LibrarySwitcher'
 import WebSearchPanel from './panels/WebSearchPanel'
 import StatusBar from './StatusBar'
-import { api, type Doc, type DocMeta, type Workspace } from './api/client'
+import SettingsModal from './settings/SettingsModal'
+import {
+  api,
+  type AppSettings,
+  type Doc,
+  type DocMeta,
+  type Workspace,
+} from './api/client'
+
+function applySettings(s: AppSettings) {
+  document.documentElement.dataset.theme = s.theme
+  window.localStorage.setItem('lm-editor.theme', s.theme)
+  document.documentElement.style.setProperty(
+    '--editor-font-size',
+    `${s.editor_font_size}px`,
+  )
+}
 
 export default function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -15,6 +31,24 @@ export default function App() {
   const [titleDraft, setTitleDraft] = useState('')
   const [backendError, setBackendError] = useState<string | null>(null)
   const [webSearchOpen, setWebSearchOpen] = useState(false)
+  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  useEffect(() => {
+    void api
+      .getSettings()
+      .then((s) => {
+        setSettings(s)
+        applySettings(s)
+      })
+      .catch(() => undefined)
+  }, [])
+
+  const changeSettings = useCallback(async (patch: Partial<AppSettings>) => {
+    const next = await api.updateSettings(patch)
+    setSettings(next)
+    applySettings(next)
+  }, [])
   const [statusBarVisible, setStatusBarVisible] = useState(
     () => window.localStorage.getItem('lm-editor.statusBar') !== 'off',
   )
@@ -173,7 +207,22 @@ export default function App() {
         >
           📊
         </button>
+        <button
+          className="statusbar-toggle"
+          onClick={() => setSettingsOpen(true)}
+          title="設定"
+          disabled={settings == null}
+        >
+          ⚙️
+        </button>
       </div>
+      {settingsOpen && settings && (
+        <SettingsModal
+          settings={settings}
+          onChange={(patch) => void changeSettings(patch)}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
       {webSearchOpen && (
         <WebSearchPanel
           workspaceId={currentWsId}

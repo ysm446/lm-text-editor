@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from backend import library, paths, router, system_stats
+from backend import library, paths, router, settings_store, system_stats
 from backend.db import models
 from backend.llm import client as llm_client
 from backend.llm import manager as llm_manager
@@ -162,6 +162,22 @@ def health() -> dict[str, bool]:
 @app.get("/system/resources")
 def system_resources() -> dict[str, Any]:
     return system_stats.get_resources()
+
+
+class SettingsUpdate(BaseModel):
+    theme: str | None = None
+    editor_font_size: int | None = None
+    tavily_api_key: str | None = None
+
+
+@app.get("/settings")
+def get_settings() -> dict[str, Any]:
+    return settings_store.read()
+
+
+@app.put("/settings")
+def update_settings(body: SettingsUpdate) -> dict[str, Any]:
+    return settings_store.update(body.model_dump(exclude_none=True))
 
 
 @app.get("/workspaces")
