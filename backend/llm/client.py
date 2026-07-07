@@ -88,3 +88,39 @@ async def stream_chat(
                 delta = choices[0].get("delta", {}).get("content")
                 if delta:
                     yield delta
+
+
+async def stream_chat_events(
+    base_url: str,
+    messages: list[Message],
+    *,
+    temperature: float = 0.7,
+    max_tokens: int | None = None,
+) -> AsyncIterator[dict[str, Any]]:
+    """stream_chat の生チャンク版。content 差分に加え usage / timings / finish_reason を
+    取り出せるよう、パース済み SSE チャンク（dict）をそのまま流す。
+
+    stream_options.include_usage で最終チャンクに usage を載せる。llama.cpp は
+    最終チャンクに timings（predicted_per_second など）も付ける。"""
+    payload: dict[str, Any] = {
+        "model": "local",
+        "messages": messages,
+        "stream": True,
+        "temperature": temperature,
+        "stream_options": {"include_usage": True},
+    }
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(None, connect=10.0)) as client:
+        async with client.stream(
+            "POST", f"{base_url}/chat/completions", json=payload
+        ) as res:
+            res.raise_for_status()
+            async for line in res.aiter_lines():
+                if not line.startswith("data: "):
+                    continue
+                data = line[len("data: "):]
+                if data.strip() == "[DONE]":
+                    break
+                yield json.loads(data)

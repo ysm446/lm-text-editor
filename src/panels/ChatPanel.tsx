@@ -5,9 +5,26 @@ import MarkdownIt from 'markdown-it'
 // リンククリックは Electron 側の will-navigate が外部ブラウザへ流す。
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
+export interface ChatMeta {
+  tokens: number | null
+  elapsed: number | null // 秒
+  tps: number | null // tok/sec
+  finish_reason: string | null
+}
+
 export interface ChatMsg {
   role: 'user' | 'assistant'
   content: string
+  meta?: ChatMeta | null // assistant 返答の生成統計（完了後に付く）
+}
+
+function metaLine(meta: ChatMeta): string {
+  const parts: string[] = []
+  if (meta.tps != null) parts.push(`⚡ ${meta.tps} tok/sec`)
+  if (meta.tokens != null) parts.push(`💬 ${meta.tokens} tokens`)
+  if (meta.elapsed != null) parts.push(`🕐 ${meta.elapsed}s`)
+  if (meta.finish_reason) parts.push(`Finish reason: ${meta.finish_reason}`)
+  return parts.join('  ·  ')
 }
 
 export interface ChatState {
@@ -80,6 +97,9 @@ export default function ChatPanel({
                 </div>
               ) : (
                 <div className="chat-msg-body">{m.content}</div>
+              )}
+              {m.role === 'assistant' && m.meta && !streamingThis && (
+                <div className="chat-msg-meta">{metaLine(m.meta)}</div>
               )}
             </div>
           )

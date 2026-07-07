@@ -1968,6 +1968,13 @@ select:focus-visible {
   margin-left: 1px;
 }
 
+/* 返答末尾の生成統計（tok/sec・トークン数・所要時間・finish reason） */
+.chat-msg-meta {
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  padding: 0 2px;
+}
+
 .chat-panel-input {
   border-top: 1px solid var(--border);
   padding: 10px 12px;

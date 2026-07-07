@@ -15,7 +15,7 @@ import SplitReview, {
 } from '../review/SplitReview'
 import RevisionPanel from '../review/RevisionPanel'
 import AssistPanel, { type AssistState } from '../panels/AssistPanel'
-import ChatPanel, { type ChatState } from '../panels/ChatPanel'
+import ChatPanel, { type ChatState, type ChatMeta, type ChatMsg } from '../panels/ChatPanel'
 import FormatToolbar from './toolbar/FormatToolbar'
 import TableToolbar from './toolbar/TableToolbar'
 import ToolPalette from './ToolPalette'
@@ -525,15 +525,18 @@ export default function Editor({
       streaming: true,
       error: null,
     })
-    const setLast = (content: string) =>
+    const setLast = (patch: Partial<ChatMsg>) =>
       setChat((c) => ({
         ...c,
         messages: c.messages.map((m, i) =>
-          i === c.messages.length - 1 ? { ...m, content } : m,
+          i === c.messages.length - 1 ? { ...m, ...patch } : m,
         ),
       }))
     try {
+      // /chat は NDJSON: {"delta": "..."} を逐次、最後に {"done": true, ...統計}
       let output = ''
+      let buffer = ''
+      let meta: ChatMeta | null = null
       for await (const chunk of streamText('/chat', {
         messages: history,
         doc_id: docId,
@@ -541,10 +544,34 @@ export default function Editor({
         selection,
         use_rag: useRag,
       })) {
-        output += chunk
-        setLast(output)
+        buffer += chunk
+        let nl: number
+        while ((nl = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, nl)
+          buffer = buffer.slice(nl + 1)
+          if (!line.trim()) continue
+          const obj = JSON.parse(line) as {
+            delta?: string
+            done?: boolean
+            tokens?: number | null
+            elapsed?: number | null
+            tps?: number | null
+            finish_reason?: string | null
+          }
+          if (obj.delta) {
+            output += obj.delta
+            setLast({ content: output })
+          } else if (obj.done) {
+            meta = {
+              tokens: obj.tokens ?? null,
+              elapsed: obj.elapsed ?? null,
+              tps: obj.tps ?? null,
+              finish_reason: obj.finish_reason ?? null,
+            }
+          }
+        }
       }
-      setLast(output.trim())
+      setLast({ content: output.trim(), meta })
       setChat((c) => ({ ...c, streaming: false }))
     } catch (e) {
       setChat((c) => ({

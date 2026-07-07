@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import threading
+import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -611,12 +612,54 @@ async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
     messages = prompts.build_chat_messages(
         history, body.document_md, body.selection, rag_context
     )
-    return StreamingResponse(
-        llm_client.stream_chat(
+
+    async def gen():
+        """本文差分（{"delta": ...}）を NDJSON で流し、最後に生成統計を
+        {"done": true, tokens, elapsed, tps, finish_reason} で 1 行返す。"""
+        start = time.perf_counter()
+        finish_reason: str | None = None
+        usage: dict[str, Any] | None = None
+        timings: dict[str, Any] | None = None
+        async for chunk in llm_client.stream_chat_events(
             cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=2048
-        ),
-        media_type="text/plain; charset=utf-8",
-    )
+        ):
+            choices = chunk.get("choices") or []
+            if choices:
+                delta = choices[0].get("delta", {}).get("content")
+                if delta:
+                    yield json.dumps({"delta": delta}, ensure_ascii=False) + "\n"
+                if choices[0].get("finish_reason"):
+                    finish_reason = choices[0]["finish_reason"]
+            if chunk.get("usage"):
+                usage = chunk["usage"]
+            if chunk.get("timings"):
+                timings = chunk["timings"]
+
+        elapsed = time.perf_counter() - start
+        tokens = (usage or {}).get("completion_tokens")
+        tps: float | None = None
+        # llama.cpp の timings があれば実デコード速度を優先（tok/sec）
+        if timings:
+            if timings.get("predicted_n"):
+                tokens = timings["predicted_n"]
+            if timings.get("predicted_ms"):
+                elapsed = timings["predicted_ms"] / 1000
+            if timings.get("predicted_per_second"):
+                tps = timings["predicted_per_second"]
+        if tps is None and tokens and elapsed > 0:
+            tps = tokens / elapsed
+        yield json.dumps(
+            {
+                "done": True,
+                "tokens": tokens,
+                "elapsed": round(elapsed, 2),
+                "tps": round(tps, 1) if tps else None,
+                "finish_reason": finish_reason,
+            },
+            ensure_ascii=False,
+        ) + "\n"
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson; charset=utf-8")
 
 
 @app.post("/review/inline")
