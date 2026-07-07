@@ -34,6 +34,10 @@ export default function App() {
   const [currentWsId, setCurrentWsId] = useState<number | null>(null)
   const [docs, setDocs] = useState<DocMeta[]>([])
   const [currentDoc, setCurrentDoc] = useState<Doc | null>(null)
+  // 選択中ワークスペースの記憶（ライブラリ別。ID はライブラリ固有なのでパスでキーを分ける）
+  const [activeLibrary, setActiveLibrary] = useState<string | null>(null)
+  const restoredWsRef = useRef(false) // 起動/ライブラリ切替後、保存済み選択の復元を一度だけ行う
+  const selectedWsKey = (lib: string) => `lm-selected-ws:${lib}`
   const [titleDraft, setTitleDraft] = useState('')
   const [backendError, setBackendError] = useState<string | null>(null)
   const [webSearchOpen, setWebSearchOpen] = useState(false)
@@ -142,9 +146,31 @@ export default function App() {
       setCurrentDoc(null)
       setDocs(await api.listDocs(id))
       void refreshWorkspaceAssets(id)
+      if (activeLibrary) {
+        localStorage.setItem(selectedWsKey(activeLibrary), String(id))
+      }
     },
-    [refreshWorkspaceAssets],
+    [refreshWorkspaceAssets, activeLibrary],
   )
+
+  // 起動時にアクティブライブラリのパスを取得（選択WS記憶のキーに使う）
+  useEffect(() => {
+    void api
+      .libraryState()
+      .then((s) => setActiveLibrary(s.active))
+      .catch(() => undefined)
+  }, [])
+
+  // 保存済みの選択ワークスペースを復元する（ライブラリとワークスペース一覧が揃ったら一度だけ）
+  useEffect(() => {
+    if (restoredWsRef.current || activeLibrary == null || workspaces.length === 0) return
+    restoredWsRef.current = true
+    const raw = localStorage.getItem(selectedWsKey(activeLibrary))
+    const id = raw ? Number.parseInt(raw, 10) : NaN
+    if (Number.isFinite(id) && workspaces.some((w) => w.id === id)) {
+      void selectWorkspace(id)
+    }
+  }, [activeLibrary, workspaces, selectWorkspace])
 
   const selectDoc = useCallback(async (id: number) => {
     setCurrentDoc(await api.getDoc(id))
@@ -241,13 +267,18 @@ export default function App() {
     [currentDoc, currentWsId, docs],
   )
 
-  // ライブラリ切替後は選択状態を捨てて全リロード
+  // ライブラリ切替後は選択状態を捨てて全リロード。新ライブラリの保存済み選択を復元し直す
   const handleLibrarySwitched = useCallback(() => {
     setCurrentWsId(null)
     setDocs([])
     setCurrentDoc(null)
     setSources([])
     setImages([])
+    restoredWsRef.current = false
+    void api
+      .libraryState()
+      .then((s) => setActiveLibrary(s.active))
+      .catch(() => setActiveLibrary(null))
     void refreshWorkspaces()
   }, [refreshWorkspaces])
 
