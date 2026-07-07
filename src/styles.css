@@ -407,16 +407,38 @@ select:focus-visible {
 }
 
 /* ============================================================
-   上部バー（ライブラリ + モデル）
+   上部バー（左=Web 検索 / 中央=モデル / 右=設定）
+   3 カラムグリッドでモデルバーを中央に固定配置（LM Studio 風）
    ============================================================ */
 .top-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   background: var(--bar-bg);
   color: var(--bar-text);
   flex-shrink: 0;
-  padding-left: 8px;
+  padding: 6px 8px;
   font-size: var(--fs-sm);
+}
+
+.top-bar-left {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.top-bar-center {
+  justify-self: center;
+  min-width: 0;
+}
+
+.top-bar-right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* 上部バー内のコントロールはフォーカス時の既定アウトライン（明るい枠）を出さない */
@@ -509,19 +531,18 @@ select:focus-visible {
   margin: 6px 0;
 }
 
-.web-search-toggle {
-  margin-left: 8px;
-}
-
-/* モデルバー */
+/* モデルバー: 上部中央の丸みのある帯（LM Studio 風） */
 .model-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 3px 6px 3px 12px;
   color: var(--bar-text);
-  flex: 1;
   min-width: 0;
+  width: min(560px, 46vw);
+  background: var(--bar-surface);
+  border: 1px solid var(--bar-border);
+  border-radius: var(--radius-m);
 }
 
 .model-dot {
@@ -563,10 +584,16 @@ select:focus-visible {
 }
 
 .model-bar-controls select {
-  max-width: 340px;
+  max-width: 260px;
   padding: 3px 8px;
   border-color: var(--bar-border);
   cursor: default;
+}
+
+/* ピル内のコントロールは帯（bar-surface）と沈んだ地（bar-bg）で差をつける */
+.model-bar-controls button,
+.model-bar-controls select {
+  background: var(--bar-bg);
 }
 
 /* ============================================================
@@ -643,6 +670,11 @@ select:focus-visible {
   color: var(--bar-faint);
 }
 
+/* トグルを右端に押しやるスペーサー（メーター非表示時も右端に留める） */
+.statusbar-spacer {
+  flex: 1;
+}
+
 /* ============================================================
    サイドバー
    ============================================================ */
@@ -717,22 +749,6 @@ select:focus-visible {
   right: 0;
 }
 
-.sidebar-footer-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  border: none;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  border-radius: var(--radius-s);
-  padding: 6px;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.sidebar-footer-btn:hover {
-  background: var(--hover);
-  color: var(--text);
-}
 
 /* 右端のリサイズハンドル: 当たり判定は広く、見た目は中央の細い線だけ（Obsidian 流）。
    線は疑似要素で描き、hover / ドラッグ中にアクセント色でフェードインさせる */
@@ -900,7 +916,7 @@ select:focus-visible {
   cursor: default;
 }
 
-/* サイドバー: 資料（RAG）セクション */
+/* サイドバー: 資料（RAG）セクション。ボタンの既定枠を消して普通のテキスト行に */
 .source-item {
   flex: 1;
   min-width: 0;
@@ -908,6 +924,11 @@ select:focus-visible {
   align-items: center;
   gap: 6px;
   padding: 5px 8px;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   font-size: var(--fs-sm);
 }
 

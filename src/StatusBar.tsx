@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type SystemResources } from './api/client'
+import { ChartIcon } from './icons'
 
 const POLL_MS = 1000
 
@@ -33,11 +34,17 @@ function Meter({ label, percent, value }: { label: string; percent: number; valu
   )
 }
 
+interface StatusBarProps {
+  visible: boolean // メーターの表示 / 非表示（バー自体と右端トグルは常時表示）
+  onToggle: () => void
+}
+
 // 下部リソースモニター（lm-chat の StatusBar を移植。表示中のみ 1 秒ポーリング）
-export default function StatusBar() {
+export default function StatusBar({ visible, onToggle }: StatusBarProps) {
   const [resources, setResources] = useState<SystemResources | null>(null)
 
   useEffect(() => {
+    if (!visible) return
     let cancelled = false
     const load = async () => {
       try {
@@ -53,13 +60,13 @@ export default function StatusBar() {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [])
+  }, [visible])
 
   const gpu = resources?.gpus[0] ?? null
 
   return (
-    <footer className="statusbar">
-      {resources ? (
+    <footer className={`statusbar${visible ? '' : ' collapsed'}`}>
+      {visible && (resources ? (
         <>
           <Meter
             label="CPU"
@@ -90,7 +97,15 @@ export default function StatusBar() {
         </>
       ) : (
         <span className="statusbar-dim">リソース情報を取得できません</span>
-      )}
+      ))}
+      <span className="statusbar-spacer" />
+      <button
+        className={`statusbar-toggle${visible ? ' active' : ''}`}
+        onClick={onToggle}
+        title={visible ? 'リソースモニターを隠す' : 'リソースモニターを表示'}
+      >
+        <ChartIcon />
+      </button>
     </footer>
   )
 }

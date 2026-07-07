@@ -9,7 +9,7 @@ import ImageLightbox from './panels/ImageLightbox'
 import ToastHost, { showToast } from './Toast'
 import StatusBar from './StatusBar'
 import SettingsModal from './settings/SettingsModal'
-import { ChartIcon, SearchIcon } from './icons'
+import { GearIcon, SearchIcon } from './icons'
 import {
   api,
   type AppSettings,
@@ -326,21 +326,27 @@ export default function App() {
   return (
     <div className="app">
       <div className="top-bar">
-        <button
-          className="web-search-toggle"
-          onClick={() => setWebSearchOpen(true)}
-          title="Web 検索して資料を取り込む（原文チャンク + 要約ノート）"
-        >
-          <SearchIcon /> Web 検索
-        </button>
-        <ModelBar />
-        <button
-          className={`statusbar-toggle${statusBarVisible ? ' active' : ''}`}
-          onClick={toggleStatusBar}
-          title={statusBarVisible ? 'リソースモニターを隠す' : 'リソースモニターを表示'}
-        >
-          <ChartIcon />
-        </button>
+        <div className="top-bar-left">
+          <button
+            className="web-search-toggle"
+            onClick={() => setWebSearchOpen(true)}
+            title="Web 検索して資料を取り込む（原文チャンク + 要約ノート）"
+          >
+            <SearchIcon /> Web 検索
+          </button>
+        </div>
+        <div className="top-bar-center">
+          <ModelBar />
+        </div>
+        <div className="top-bar-right">
+          <button
+            className="statusbar-toggle"
+            onClick={() => void openSettings()}
+            title="設定"
+          >
+            <GearIcon />
+          </button>
+        </div>
       </div>
       {viewingImage && (
         <ImageLightbox
@@ -393,7 +399,6 @@ export default function App() {
         onViewImage={setViewingImage}
         onDeleteImage={(img) => void deleteImage(img)}
         onLibrarySwitched={handleLibrarySwitched}
-        onOpenSettings={() => void openSettings()}
       />
       <main className="editor-area">
         <div className={`workbench${paneResizing ? ' resizing' : ''}`}>
@@ -501,7 +506,7 @@ export default function App() {
         </div>
       </main>
       </div>
-      {statusBarVisible && <StatusBar />}
+      <StatusBar visible={statusBarVisible} onToggle={toggleStatusBar} />
       <ToastHost />
     </div>
   )
