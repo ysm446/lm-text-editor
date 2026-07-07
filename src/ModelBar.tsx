@@ -21,12 +21,20 @@ export default function ModelBar() {
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const timer = useRef<number | null>(null)
+  const switchAt = useRef(0) // ロード開始時刻。起動直後の一時的な stopped を無視する猶予に使う
 
   const poll = useCallback(async () => {
     try {
       const s = await api.llamaStatus()
       setStatus(s)
-      if (s.status !== 'loading') setSwitching(false)
+      // ロード中は「起動中」を維持: ready で解除。旧→新サーバ切替の一瞬に出る
+      // stopped/down は無視し、一定時間 ready にならなければ（失敗とみなし）解除する
+      setSwitching((sw) => {
+        if (!sw) return false
+        if (s.status === 'ready') return false
+        if (s.status === 'stopped' && Date.now() - switchAt.current > 12000) return false
+        return true
+      })
     } catch {
       setStatus(null) // backend 自体が落ちている
     }
@@ -56,6 +64,7 @@ export default function ModelBar() {
   const start = async () => {
     if (!selected) return
     setError(null)
+    switchAt.current = Date.now()
     setSwitching(true)
     setModalOpen(false) // ロード状態はピルで見せる
     try {
