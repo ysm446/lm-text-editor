@@ -5,7 +5,7 @@ from backend.llm.client import Message
 
 # 校正のシステムプロンプトの既定値。設定 review_system_prompt が空ならこれを使う
 REVIEW_SYSTEM = (
-    "あなたは技術ブログ記事の校正者です。"
+    "あなたは文章の校正者です。"
     "与えられた「校正対象」の文章を、意味と事実関係を変えずに、"
     "日本語として自然で読みやすい文章に校正してください。\n"
     "ルール:\n"
@@ -23,8 +23,8 @@ def review_system() -> str:
 
 
 CONTINUE_SYSTEM = (
-    "あなたは技術ブログ記事の執筆アシスタントです。"
-    "書きかけの記事の続きを書いてください。\n"
+    "あなたは文章の執筆アシスタントです。"
+    "書きかけの文章の続きを書いてください。\n"
     "ルール:\n"
     "- これまでの文体・トーン・見出し構造を維持する。\n"
     "- Markdown で書く。\n"
@@ -33,11 +33,11 @@ CONTINUE_SYSTEM = (
 )
 
 SECTION_SYSTEM = (
-    "あなたは技術ブログ記事の執筆アシスタントです。"
-    "指示に従って記事のセクションを書いてください。\n"
+    "あなたは文章の執筆アシスタントです。"
+    "指示に従って文章のセクションを書いてください。\n"
     "ルール:\n"
-    "- 記事の現状（参考）と文体・トーンを揃える。\n"
-    "- Markdown で書く。見出しレベルは記事の構造に合わせる。\n"
+    "- 文章の現状（参考）と文体・トーンを揃える。\n"
+    "- Markdown で書く。見出しレベルは文章の構造に合わせる。\n"
     "- セクションの本文のみを出力する。説明・前置きは書かない。"
 )
 
@@ -65,7 +65,7 @@ def build_section_messages(
     if rag_context:
         parts.append(f"## 参考資料（RAG 検索結果）\n{rag_context}")
     if document_md:
-        parts.append(f"## 記事の現状（参考）\n{document_md}")
+        parts.append(f"## 文章の現状（参考）\n{document_md}")
     parts.append(f"## 指示\n{instruction}")
     return [
         {"role": "system", "content": SECTION_SYSTEM},
@@ -74,14 +74,14 @@ def build_section_messages(
 
 
 CHAT_SYSTEM = (
-    "あなたは技術ブログ記事の執筆パートナーです。"
-    "ユーザーが編集中の記事について、相談・レビュー・書き換え提案に対話形式で応じます。\n"
+    "あなたは文章の執筆パートナーです。"
+    "ユーザーが編集中の文章について、相談・レビュー・書き換え提案に対話形式で応じます。\n"
     "ルール:\n"
     "- 日本語で、要点から簡潔に答える。\n"
     "- レビュー依頼には具体的に指摘する（どこが・なぜ・どう直すか）。\n"
     "- 書き換え案を出すときは、そのまま貼れる Markdown で示す。\n"
-    "- 記事の文体・トーン・見出し構造を尊重する。\n"
-    "- 「編集中の記事」「選択箇所」は参考情報。ユーザーの質問に直接答えることを優先する。"
+    "- 文章の文体・トーン・見出し構造を尊重する。\n"
+    "- 「編集中の文章」「選択箇所」は参考情報。ユーザーの質問に直接答えることを優先する。"
 )
 
 
@@ -97,7 +97,7 @@ def build_chat_messages(
     if rag_context:
         context_parts.append(f"## 参考資料（RAG 検索結果）\n{rag_context}")
     if document_md:
-        context_parts.append(f"## 編集中の記事（全文・参考）\n{document_md}")
+        context_parts.append(f"## 編集中の文章（全文・参考）\n{document_md}")
     if selection:
         context_parts.append(f"## ユーザーが選択している箇所\n{selection}")
     if context_parts:
@@ -116,7 +116,7 @@ def build_review_messages(
 ) -> list[Message]:
     parts: list[str] = []
     if outline:
-        parts.append(f"## 記事のアウトライン（参考）\n{outline}")
+        parts.append(f"## 文章のアウトライン（参考）\n{outline}")
     if context_before:
         parts.append(f"## 前の文脈（参考）\n{context_before}")
     parts.append(f"## 校正対象\n{text}")
