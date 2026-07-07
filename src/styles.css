@@ -636,8 +636,8 @@ select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 4px 10px;
+  gap: 16px; /* メーター間の間隔（各メーターは自然幅なので均等に見える） */
+  padding: 4px 12px;
   background: var(--bar-bg);
   color: var(--bar-text);
   font-size: var(--fs-xs);
@@ -650,13 +650,11 @@ select:focus-visible {
 .statusbar-meter {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .statusbar-meter-label {
   color: var(--bar-muted);
-  width: 30px;
-  text-align: right;
 }
 
 .statusbar-meter-track {
@@ -674,7 +672,6 @@ select:focus-visible {
 }
 
 .statusbar-meter-value {
-  min-width: 72px;
   color: var(--bar-text);
 }
 
