@@ -506,8 +506,9 @@ export default function Editor({
 
   return (
     <div className="editor-root">
-      {/* スクロールしてもツールバーは上部に固定表示する */}
+      {/* スクロールしてもツールバーは上部に固定表示する（書式 + 操作の 1 段構成） */}
       <div className="editor-toolbars">
+      <div className="toolbar-row">
       <FormatToolbar editor={editor} />
       <div className="editor-toolbar">
         <button
@@ -525,7 +526,7 @@ export default function Editor({
           }}
           title="文書全体を左右分割ビューで校正します"
         >
-          文書全体を校正
+          全体を校正
         </button>
         <button
           className={assistOpen ? 'active-toggle' : ''}
@@ -543,7 +544,6 @@ export default function Editor({
         >
           履歴
         </button>
-        <div className="toolbar-spacer" />
         {saveError && <span className="save-error">{saveError}</span>}
         {dirty && !saving && (
           <span className="dirty-indicator" title="未保存の変更があります">
@@ -558,6 +558,7 @@ export default function Editor({
         >
           {saving ? '保存中…' : '保存'}
         </button>
+      </div>
       </div>
       {/* 校正結果は sticky ラッパー内に置き、スクロール位置に関係なくツールバー直下に見せる */}
       {review && (
