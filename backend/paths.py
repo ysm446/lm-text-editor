@@ -21,17 +21,44 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 # 既定ライブラリ（レジストリ未設定時の後方互換の帰り先）
 _DEFAULT_LIBRARY = _REPO_ROOT / "data"
 
-# マシンレベルのルート（どのライブラリにも属さない）
-_MACHINE_ROOT = Path.home() / ".lm-text-editor"
+# マシンレベル（設定 / レジストリ / PID）のルート。
+# 配布前なのでユーザー環境（~/.lm-text-editor）ではなくリポジトリの data/ に置く。
+_MACHINE_ROOT = _REPO_ROOT / "data"
+
+# 旧保存先（ユーザー環境）。存在すれば data/ へ一度だけ移行する。
+_LEGACY_MACHINE_ROOT = Path.home() / ".lm-text-editor"
 
 # アクティブなライブラリのルート。初回呼び出し時にレジストリから遅延解決する。
 _library_root: Path | None = None
+_migrated = False
 
 
 # --- マシン側 ---
 
+def _migrate_legacy_machine_files() -> None:
+    """旧 ~/.lm-text-editor/ の設定・レジストリを data/ へ一度だけ引き継ぐ。
+
+    PID 記録（llama_runtime.json）は実行時の一時情報なので移行しない
+    （外部起動サーバとして検出・引き取りできる）。
+    """
+    global _migrated
+    if _migrated or _MACHINE_ROOT == _LEGACY_MACHINE_ROOT:
+        _migrated = True
+        return
+    for name in ("settings.json", "libraries.json"):
+        src = _LEGACY_MACHINE_ROOT / name
+        dst = _MACHINE_ROOT / name
+        if src.exists() and not dst.exists():
+            try:
+                dst.write_bytes(src.read_bytes())
+            except Exception:
+                pass
+    _migrated = True
+
+
 def machine_root() -> Path:
     _MACHINE_ROOT.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_machine_files()
     return _MACHINE_ROOT
 
 
