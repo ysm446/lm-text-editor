@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Sidebar from './workspace/Sidebar'
+import PaneResizer from './workspace/PaneResizer'
 import Editor from './editor/Editor'
 import ModelBar from './ModelBar'
 import LibrarySwitcher from './LibrarySwitcher'
@@ -43,6 +44,16 @@ export default function App() {
   const [viewingSource, setViewingSource] = useState<RagSource | null>(null)
   const [viewingImage, setViewingImage] = useState<WorkspaceImage | null>(null)
   const [assistPaneOpen, setAssistPaneOpen] = useState(false)
+  // ペイン幅（px・ドラッグで可変・localStorage に記憶）
+  const PANE_MIN = 280
+  const PANE_MAX = 900
+  const [leftPaneWidth, setLeftPaneWidth] = useState(
+    () => Number(localStorage.getItem('lm-pane-left-width')) || 480,
+  )
+  const [rightPaneWidth, setRightPaneWidth] = useState(
+    () => Number(localStorage.getItem('lm-pane-right-width')) || 480,
+  )
+  const [paneResizing, setPaneResizing] = useState(false) // ドラッグ中は幅のトランジションを止める
   // 閉じるアニメーション中も内容を保持しておく（スライドアウトが空にならないように）
   const lastSource = useRef<RagSource | null>(null)
   if (viewingSource) lastSource.current = viewingSource
@@ -392,9 +403,12 @@ export default function App() {
         onDeleteImage={(img) => void deleteImage(img)}
       />
       <main className="editor-area">
-        <div className="workbench">
+        <div className={`workbench${paneResizing ? ' resizing' : ''}`}>
           {/* 左ペイン: 資料（サイドバーの資料クリックでスライドイン） */}
-          <aside className={`pane pane-left${viewingSource ? ' open' : ''}`}>
+          <aside
+            className={`pane pane-left${viewingSource ? ' open' : ''}`}
+            style={viewingSource ? { flexBasis: leftPaneWidth } : undefined}
+          >
             <div className="pane-inner">
               {paneSource && currentWsId != null && (
                 <SourceViewer
@@ -405,6 +419,22 @@ export default function App() {
               )}
             </div>
           </aside>
+          {viewingSource && (
+            <PaneResizer
+              side="left"
+              width={leftPaneWidth}
+              min={PANE_MIN}
+              max={PANE_MAX}
+              onChange={(w) => {
+                setPaneResizing(true)
+                setLeftPaneWidth(w)
+              }}
+              onCommit={(w) => {
+                setPaneResizing(false)
+                localStorage.setItem('lm-pane-left-width', String(w))
+              }}
+            />
+          )}
 
           {/* 中央: 編集中の文章 */}
           <div className="doc-stage">
@@ -453,8 +483,25 @@ export default function App() {
           </div>
 
           {/* 右ペイン: 執筆支援（Editor が portal で描画する） */}
+          {assistPaneOpen && currentDoc && (
+            <PaneResizer
+              side="right"
+              width={rightPaneWidth}
+              min={PANE_MIN}
+              max={PANE_MAX}
+              onChange={(w) => {
+                setPaneResizing(true)
+                setRightPaneWidth(w)
+              }}
+              onCommit={(w) => {
+                setPaneResizing(false)
+                localStorage.setItem('lm-pane-right-width', String(w))
+              }}
+            />
+          )}
           <aside
             className={`pane pane-right${assistPaneOpen && currentDoc ? ' open' : ''}`}
+            style={assistPaneOpen && currentDoc ? { flexBasis: rightPaneWidth } : undefined}
           >
             <div className="pane-inner" id="assist-pane-root" />
           </aside>
