@@ -1378,6 +1378,13 @@ body {
   max-width: 100%;
 }
 
+/* クリックで画像を選択したとき、色付きの枠で囲って選択中だと分かるようにする */
+.tiptap-root .ProseMirror img.ProseMirror-selectednode {
+  outline: 3px solid var(--accent-border);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .tiptap-root .ProseMirror a {
   color: var(--link);
   text-decoration: underline;
