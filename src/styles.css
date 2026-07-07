@@ -525,15 +525,24 @@ select:focus-visible {
 }
 
 /* モデルバー: 上部中央の丸みのある帯（LM Studio 風） */
+/* モデルピル + イジェクトのまとまり */
+.model-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* モデルピル: 上部中央の状態ボタン（クリックでモーダル）。LM Studio / VCA 風。
-   ロード済み=アクセント塗り / 未ロード=グレー / ロード中=アクセントのシマー */
+   ロード済み=アクセント塗り / 未ロード=グレー / ロード中=アクセントのシマー。
+   幅は内容に合わせて可変（短ければ小さく、長ければ広がって上限で省略） */
 .model-pill {
   display: flex;
   align-items: center;
   gap: 10px;
   height: 30px;
-  width: min(440px, 40vw);
-  min-width: 0;
+  width: auto;
+  min-width: 180px;
+  max-width: min(440px, 38vw);
   padding: 0 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-m);
@@ -541,6 +550,31 @@ select:focus-visible {
   font-size: var(--fs-sm);
   font-weight: 600;
   transition: filter 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+/* 右のイジェクトボタン: ロード済みのときだけアクティブ */
+.model-eject-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: 1px solid var(--bar-border);
+  border-radius: var(--radius-m);
+  background: var(--bar-surface);
+  color: var(--bar-text);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.model-eject-btn:hover:not(:disabled) {
+  background: var(--bar-hover);
+}
+
+.model-eject-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .model-pill-icon,
@@ -580,16 +614,16 @@ select:focus-visible {
   color: var(--bar-text);
 }
 
-/* ロード中: アクセントのシマー */
+/* ロード中: 控えめなアクセントのシマー（紫は薄めに） */
 .model-pill.loading {
   background: linear-gradient(
     110deg,
-    color-mix(in srgb, var(--accent) 55%, var(--bar-surface)) 25%,
-    var(--accent) 50%,
-    color-mix(in srgb, var(--accent) 55%, var(--bar-surface)) 75%
+    color-mix(in srgb, var(--accent) 18%, var(--bar-surface)) 25%,
+    color-mix(in srgb, var(--accent) 45%, var(--bar-surface)) 50%,
+    color-mix(in srgb, var(--accent) 18%, var(--bar-surface)) 75%
   );
   background-size: 200% 100%;
-  color: var(--accent-text);
+  color: var(--bar-text);
   animation: pill-shimmer 1.4s linear infinite;
 }
 

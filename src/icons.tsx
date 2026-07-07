@@ -65,6 +65,15 @@ export function CpuIcon({ size = 15 }: IconProps) {
   )
 }
 
+export function EjectIcon({ size = 15 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M6 13l6-7 6 7z" />
+      <line x1="6" y1="18" x2="18" y2="18" />
+    </svg>
+  )
+}
+
 export function LinkIcon({ size = 14 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type LlamaStatus, type LocalModel } from './api/client'
-import { ChevronDownIcon, CpuIcon } from './icons'
+import { ChevronDownIcon, CpuIcon, EjectIcon } from './icons'
 
 const POLL_MS = 3000
 
@@ -99,19 +99,29 @@ export default function ModelBar() {
 
   return (
     <>
-      <button
-        className={`model-pill ${pillState}`}
-        onClick={() => setModalOpen(true)}
-        title="クリックしてモデルを選択・ロード"
-      >
-        <span className="model-pill-icon">
-          <CpuIcon size={15} />
-        </span>
-        <span className="model-pill-text">{label}</span>
-        <span className="model-pill-caret">
-          <ChevronDownIcon size={13} />
-        </span>
-      </button>
+      <div className="model-pill-group">
+        <button
+          className={`model-pill ${pillState}`}
+          onClick={() => setModalOpen(true)}
+          title="クリックしてモデルを選択・ロード"
+        >
+          <span className="model-pill-icon">
+            <CpuIcon size={15} />
+          </span>
+          <span className="model-pill-text">{label}</span>
+          <span className="model-pill-caret">
+            <ChevronDownIcon size={13} />
+          </span>
+        </button>
+        <button
+          className="model-eject-btn"
+          disabled={!ready}
+          onClick={() => void eject()}
+          title={ready ? 'モデルをアンロード' : 'モデル未ロード'}
+        >
+          <EjectIcon size={15} />
+        </button>
+      </div>
 
       {modalOpen && (
         <div className="model-modal" onMouseDown={() => setModalOpen(false)}>
