@@ -69,6 +69,23 @@ export interface LibraryState {
   libraries: Library[]
 }
 
+export interface RagSource {
+  source_type: string // 'article' | 'reference' | 'web'
+  source_url: string | null
+  chunk_count: number
+  note_count: number
+  fetched_at: string | null
+}
+
+export interface WorkspaceImage {
+  id: number
+  document_id: number
+  rel_path: string
+  caption: string | null
+  created_at: string
+  url: string
+}
+
 export interface WebSearchResult {
   title: string
   url: string
@@ -256,6 +273,42 @@ export const api = {
 
   ornithStop: () =>
     request<{ status: string }>('/ornith/stop', { method: 'POST' }),
+
+  listRagSources: (workspaceId: number) =>
+    request<RagSource[]>(`/rag/sources?workspace_id=${workspaceId}`),
+
+  ragIngest: (body: {
+    source_type: string
+    content: string
+    workspace_id: number | null
+    source_url?: string
+  }) =>
+    request<{ ok: boolean; chunk_ids: number[] }>('/rag/ingest', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deleteRagSource: (
+    workspaceId: number,
+    sourceType: string,
+    sourceUrl: string | null,
+  ) =>
+    request<{ ok: boolean }>('/rag/sources/delete', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        source_type: sourceType,
+        source_url: sourceUrl,
+      }),
+    }),
+
+  listWorkspaceImages: (workspaceId: number) =>
+    request<WorkspaceImage[]>(`/workspaces/${workspaceId}/images`).then((imgs) =>
+      imgs.map((i) => ({ ...i, url: `${baseUrl}${i.url}` })),
+    ),
+
+  deleteAsset: (assetId: number) =>
+    request<{ ok: boolean }>(`/assets/${assetId}`, { method: 'DELETE' }),
 
   webSearch: (query: string, maxResults = 8) =>
     request<{ queries: string[]; results: WebSearchResult[]; provider: string }>(

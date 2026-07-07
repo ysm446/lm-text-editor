@@ -261,6 +261,32 @@ def update_doc(
 
 # --- asset ---
 
+def list_workspace_images(workspace_id: int) -> list[dict[str, Any]]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT a.id, a.document_id, a.rel_path, a.caption, a.created_at"
+            " FROM asset a JOIN document d ON d.id = a.document_id"
+            " WHERE d.workspace_id = ? ORDER BY a.id DESC",
+            (workspace_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_asset(asset_id: int) -> dict[str, Any] | None:
+    """asset 行を削除し、ファイル掃除用の情報を返す。"""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT a.rel_path, d.workspace_id FROM asset a"
+            " JOIN document d ON d.id = a.document_id WHERE a.id = ?",
+            (asset_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        conn.execute("DELETE FROM asset WHERE id = ?", (asset_id,))
+    return dict(row)
+
+
+
 def create_asset(
     document_id: int, rel_path: str, caption: str | None = None
 ) -> dict[str, Any]:

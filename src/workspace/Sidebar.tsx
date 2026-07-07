@@ -1,5 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import type { DocMeta, Workspace } from '../api/client'
+import type { DocMeta, RagSource, Workspace, WorkspaceImage } from '../api/client'
+
+// ソースの表示名（URL はファイル名 / ホスト名に短縮）
+function sourceLabel(s: RagSource): string {
+  if (!s.source_url) return `（${s.source_type}）`
+  try {
+    if (s.source_url.startsWith('file://')) {
+      return decodeURIComponent(s.source_url.split('/').pop() ?? s.source_url)
+    }
+    const u = new URL(s.source_url)
+    const last = u.pathname.split('/').filter(Boolean).pop()
+    return last ? `${u.hostname}/${last}` : u.hostname
+  } catch {
+    return s.source_url
+  }
+}
 
 interface InlineCreateProps {
   placeholder: string
@@ -142,6 +157,8 @@ interface SidebarProps {
   currentWorkspaceId: number | null
   docs: DocMeta[]
   currentDocId: number | null
+  sources: RagSource[]
+  images: WorkspaceImage[]
   onSelectWorkspace: (id: number) => void
   onSelectDoc: (id: number) => void
   onCreateWorkspace: (name: string) => void
@@ -150,6 +167,10 @@ interface SidebarProps {
   onDeleteWorkspace: (id: number) => void
   onRenameDoc: (id: number, title: string) => void
   onDeleteDoc: (id: number) => void
+  onAddSourceFiles: (files: FileList) => void
+  onDeleteSource: (source: RagSource) => void
+  onInsertImage: (image: WorkspaceImage) => void
+  onDeleteImage: (image: WorkspaceImage) => void
 }
 
 export default function Sidebar({
@@ -157,6 +178,8 @@ export default function Sidebar({
   currentWorkspaceId,
   docs,
   currentDocId,
+  sources,
+  images,
   onSelectWorkspace,
   onSelectDoc,
   onCreateWorkspace,
@@ -165,7 +188,12 @@ export default function Sidebar({
   onDeleteWorkspace,
   onRenameDoc,
   onDeleteDoc,
+  onAddSourceFiles,
+  onDeleteSource,
+  onInsertImage,
+  onDeleteImage,
 }: SidebarProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   return (
     <aside className="sidebar">
       <section className="sidebar-section">
@@ -201,6 +229,80 @@ export default function Sidebar({
             ))}
           </ul>
           <InlineCreate placeholder="新規ドキュメント" onCreate={onCreateDoc} />
+        </section>
+      )}
+
+      {currentWorkspaceId != null && (
+        <section className="sidebar-section">
+          <h2>資料（RAG）</h2>
+          <ul>
+            {sources.map((s) => (
+              <li
+                key={`${s.source_type}:${s.source_url ?? ''}`}
+                className="item-row"
+              >
+                <span
+                  className="source-item"
+                  title={`${s.source_url ?? s.source_type}\n${s.chunk_count} チャンク${s.note_count > 0 ? ' + 要約ノート' : ''}`}
+                >
+                  <span className={`source-badge type-${s.source_type}`}>
+                    {s.source_type === 'web' ? 'W' : s.source_type === 'article' ? 'A' : 'R'}
+                  </span>
+                  <span className="source-name">{sourceLabel(s)}</span>
+                  <span className="source-count">{s.chunk_count}</span>
+                </span>
+                <button
+                  className="item-menu-btn"
+                  title="この資料を削除"
+                  onClick={() => onDeleteSource(s)}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            className="inline-create-toggle"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            ＋ ファイルを追加（.md / .txt）
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".md,.markdown,.txt"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              if (e.target.files?.length) onAddSourceFiles(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </section>
+      )}
+
+      {currentWorkspaceId != null && images.length > 0 && (
+        <section className="sidebar-section">
+          <h2>画像</h2>
+          <div className="image-grid">
+            {images.map((img) => (
+              <div key={img.id} className="image-thumb-wrap">
+                <img
+                  className="image-thumb"
+                  src={img.url}
+                  title={`${img.rel_path}\nクリックでカーソル位置に挿入`}
+                  onClick={() => onInsertImage(img)}
+                />
+                <button
+                  className="image-thumb-delete"
+                  title="この画像を削除"
+                  onClick={() => onDeleteImage(img)}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </aside>

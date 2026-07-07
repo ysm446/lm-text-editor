@@ -25,6 +25,8 @@ interface EditorProps {
   draft: unknown | null // 前回の未保存編集（ドラフト退避）
   draftSavedAt: string | null
   onSaved: (docId: number) => void
+  onImageUploaded?: () => void // ペースト/ドロップで画像を保存した後の通知
+  registerImageInserter?: (fn: (url: string) => void) => void // サイドバーからの挿入用
 }
 
 interface ReviewState {
@@ -89,6 +91,8 @@ export default function Editor({
   draft,
   draftSavedAt,
   onSaved,
+  onImageUploaded,
+  registerImageInserter,
 }: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
   const draftTimer = useRef<number | null>(null)
@@ -175,7 +179,16 @@ export default function Editor({
       data_base64: await fileToBase64(file),
     })
     editorRef.current?.chain().focus().setImage({ src: asset.url }).run()
+    onImageUploaded?.()
   }
+
+  // サイドバーの画像クリックでカーソル位置に挿入できるよう登録する
+  useEffect(() => {
+    registerImageInserter?.((url) => {
+      editorRef.current?.chain().focus().setImage({ src: url }).run()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const editor = useEditor({
     extensions: [

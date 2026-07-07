@@ -421,6 +421,25 @@ def rag_search_endpoint(body: RagSearchRequest) -> dict[str, Any]:
     return {"chunks": chunks, "notes": notes}
 
 
+class RagSourceDeleteRequest(BaseModel):
+    workspace_id: int
+    source_type: str
+    source_url: str | None = None
+
+
+@app.get("/rag/sources")
+def list_rag_sources(workspace_id: int) -> list[dict[str, Any]]:
+    return rag_store.list_sources(workspace_id)
+
+
+@app.post("/rag/sources/delete")
+def delete_rag_source(body: RagSourceDeleteRequest) -> dict[str, Any]:
+    deleted = rag_store.delete_source(
+        body.workspace_id, body.source_type, body.source_url
+    )
+    return {"ok": True, "deleted_chunks": deleted}
+
+
 @app.post("/rag/ingest")
 def rag_ingest_endpoint(body: RagIngestRequest) -> dict[str, Any]:
     if body.source_type not in ("article", "reference", "web"):
@@ -528,6 +547,27 @@ async def review_split(body: ReviewSplitRequest) -> StreamingResponse:
             ) + "\n"
 
     return StreamingResponse(gen(), media_type="application/x-ndjson; charset=utf-8")
+
+
+@app.get("/workspaces/{workspace_id}/images")
+def list_workspace_images(workspace_id: int) -> list[dict[str, Any]]:
+    images = models.list_workspace_images(workspace_id)
+    for img in images:
+        img["url"] = f"/files/{workspace_id}/{img['rel_path']}"
+    return images
+
+
+@app.delete("/assets/{asset_id}")
+def delete_asset(asset_id: int) -> dict[str, bool]:
+    info = models.delete_asset(asset_id)
+    if info is None:
+        raise HTTPException(status_code=404, detail="asset not found")
+    target = (
+        paths.workspace_files_dir() / str(info["workspace_id"]) / info["rel_path"]
+    ).resolve()
+    if paths.workspace_files_dir().resolve() in target.parents and target.is_file():
+        target.unlink(missing_ok=True)
+    return {"ok": True}
 
 
 @app.post("/assets")

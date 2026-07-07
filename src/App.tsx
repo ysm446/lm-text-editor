@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Sidebar from './workspace/Sidebar'
 import Editor from './editor/Editor'
 import ModelBar from './ModelBar'
@@ -11,7 +11,9 @@ import {
   type AppSettings,
   type Doc,
   type DocMeta,
+  type RagSource,
   type Workspace,
+  type WorkspaceImage,
 } from './api/client'
 
 function applySettings(s: AppSettings) {
@@ -33,6 +35,23 @@ export default function App() {
   const [webSearchOpen, setWebSearchOpen] = useState(false)
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [sources, setSources] = useState<RagSource[]>([])
+  const [images, setImages] = useState<WorkspaceImage[]>([])
+  const imageInserter = useRef<((url: string) => void) | null>(null)
+
+  const refreshWorkspaceAssets = useCallback(async (wsId: number | null) => {
+    if (wsId == null) {
+      setSources([])
+      setImages([])
+      return
+    }
+    const [s, i] = await Promise.all([
+      api.listRagSources(wsId).catch(() => []),
+      api.listWorkspaceImages(wsId).catch(() => []),
+    ])
+    setSources(s)
+    setImages(i)
+  }, [])
 
   useEffect(() => {
     void api
@@ -79,11 +98,15 @@ export default function App() {
     setTitleDraft(currentDoc?.title ?? '')
   }, [currentDoc?.id, currentDoc?.title])
 
-  const selectWorkspace = useCallback(async (id: number) => {
-    setCurrentWsId(id)
-    setCurrentDoc(null)
-    setDocs(await api.listDocs(id))
-  }, [])
+  const selectWorkspace = useCallback(
+    async (id: number) => {
+      setCurrentWsId(id)
+      setCurrentDoc(null)
+      setDocs(await api.listDocs(id))
+      void refreshWorkspaceAssets(id)
+    },
+    [refreshWorkspaceAssets],
+  )
 
   const selectDoc = useCallback(async (id: number) => {
     setCurrentDoc(await api.getDoc(id))
@@ -185,8 +208,58 @@ export default function App() {
     setCurrentWsId(null)
     setDocs([])
     setCurrentDoc(null)
+    setSources([])
+    setImages([])
     void refreshWorkspaces()
   }, [refreshWorkspaces])
+
+  // 資料（RAG）: テキスト / Markdown ファイルの追加・削除
+  const addSourceFiles = useCallback(
+    async (files: FileList) => {
+      if (currentWsId == null) return
+      for (const file of Array.from(files)) {
+        const content = await file.text()
+        if (!content.trim()) continue
+        await api.ragIngest({
+          source_type: 'reference',
+          content,
+          workspace_id: currentWsId,
+          source_url: `file:///${encodeURIComponent(file.name)}`,
+        })
+      }
+      void refreshWorkspaceAssets(currentWsId)
+    },
+    [currentWsId, refreshWorkspaceAssets],
+  )
+
+  const deleteSource = useCallback(
+    async (source: RagSource) => {
+      if (currentWsId == null) return
+      if (!window.confirm('この資料を RAG から削除しますか？')) return
+      await api.deleteRagSource(currentWsId, source.source_type, source.source_url)
+      void refreshWorkspaceAssets(currentWsId)
+    },
+    [currentWsId, refreshWorkspaceAssets],
+  )
+
+  // 画像: カーソル位置に挿入 / 削除
+  const insertImage = useCallback((image: WorkspaceImage) => {
+    imageInserter.current?.(image.url)
+  }, [])
+
+  const deleteImage = useCallback(
+    async (image: WorkspaceImage) => {
+      if (
+        !window.confirm(
+          'この画像を削除しますか？\n本文に挿入済みの画像は表示されなくなります。',
+        )
+      )
+        return
+      await api.deleteAsset(image.id)
+      void refreshWorkspaceAssets(currentWsId)
+    },
+    [currentWsId, refreshWorkspaceAssets],
+  )
 
   return (
     <div className="app">
@@ -226,7 +299,10 @@ export default function App() {
       {webSearchOpen && (
         <WebSearchPanel
           workspaceId={currentWsId}
-          onClose={() => setWebSearchOpen(false)}
+          onClose={() => {
+            setWebSearchOpen(false)
+            void refreshWorkspaceAssets(currentWsId) // 取り込んだ資料を一覧へ反映
+          }}
         />
       )}
       <div className="app-body">
@@ -235,6 +311,8 @@ export default function App() {
         currentWorkspaceId={currentWsId}
         docs={docs}
         currentDocId={currentDoc?.id ?? null}
+        sources={sources}
+        images={images}
         onSelectWorkspace={(id) => void selectWorkspace(id)}
         onSelectDoc={(id) => void selectDoc(id)}
         onCreateWorkspace={(name) => void createWorkspace(name)}
@@ -243,6 +321,10 @@ export default function App() {
         onDeleteWorkspace={(id) => void deleteWorkspace(id)}
         onRenameDoc={(id, title) => void renameDoc(id, title)}
         onDeleteDoc={(id) => void deleteDoc(id)}
+        onAddSourceFiles={(files) => void addSourceFiles(files)}
+        onDeleteSource={(s) => void deleteSource(s)}
+        onInsertImage={insertImage}
+        onDeleteImage={(img) => void deleteImage(img)}
       />
       <main className="editor-area">
         {backendError && (
@@ -270,6 +352,10 @@ export default function App() {
               draft={currentDoc.draft_json}
               draftSavedAt={currentDoc.draft_saved_at}
               onSaved={handleSaved}
+              onImageUploaded={() => void refreshWorkspaceAssets(currentWsId)}
+              registerImageInserter={(fn) => {
+                imageInserter.current = fn
+              }}
             />
           </div>
         ) : (

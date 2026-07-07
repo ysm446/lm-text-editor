@@ -166,6 +166,63 @@ def add_source_note(
     return note_id
 
 
+def list_sources(workspace_id: int) -> list[dict[str, Any]]:
+    """ワークスペースに取り込まれた資料をソース単位で一覧する。"""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT source_type, source_url, COUNT(*) AS chunk_count,"
+            " MIN(fetched_at) AS fetched_at"
+            " FROM rag_chunk WHERE workspace_id = ?"
+            " GROUP BY source_type, source_url ORDER BY MIN(id) DESC",
+            (workspace_id,),
+        ).fetchall()
+        note_rows = conn.execute(
+            "SELECT source_url, COUNT(*) AS n FROM source_note"
+            " WHERE workspace_id = ? GROUP BY source_url",
+            (workspace_id,),
+        ).fetchall()
+    notes_by_url = {r["source_url"]: int(r["n"]) for r in note_rows}
+    return [
+        {**dict(r), "note_count": notes_by_url.get(r["source_url"], 0)} for r in rows
+    ]
+
+
+def delete_source(
+    workspace_id: int, source_type: str, source_url: str | None
+) -> int:
+    """ソース単位で原文チャンクとソースノートを削除する。"""
+    with connect() as conn:
+        if source_url is None:
+            cond = "workspace_id = ? AND source_type = ? AND source_url IS NULL"
+            params: tuple[Any, ...] = (workspace_id, source_type)
+        else:
+            cond = "workspace_id = ? AND source_type = ? AND source_url = ?"
+            params = (workspace_id, source_type, source_url)
+        ids = [
+            r["id"]
+            for r in conn.execute(f"SELECT id FROM rag_chunk WHERE {cond}", params)
+        ]
+        if ids:
+            ph = ",".join("?" * len(ids))
+            conn.execute(f"DELETE FROM rag_fts WHERE chunk_id IN ({ph})", ids)
+            conn.execute(f"DELETE FROM rag_vec WHERE chunk_id IN ({ph})", ids)
+            conn.execute(f"DELETE FROM rag_chunk WHERE id IN ({ph})", ids)
+        if source_url is not None:
+            note_ids = [
+                r["id"]
+                for r in conn.execute(
+                    "SELECT id FROM source_note WHERE workspace_id = ? AND source_url = ?",
+                    (workspace_id, source_url),
+                )
+            ]
+            if note_ids:
+                ph = ",".join("?" * len(note_ids))
+                conn.execute(f"DELETE FROM note_fts WHERE note_id IN ({ph})", note_ids)
+                conn.execute(f"DELETE FROM note_vec WHERE note_id IN ({ph})", note_ids)
+                conn.execute(f"DELETE FROM source_note WHERE id IN ({ph})", note_ids)
+    return len(ids)
+
+
 def delete_workspace_data(workspace_id: int) -> int:
     """ワークスペース削除時に、そのスコープの RAG データを掃除する。"""
     with connect() as conn:

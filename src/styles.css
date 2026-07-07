@@ -1544,3 +1544,100 @@ body {
 .settings-inline button:disabled {
   color: var(--faint);
 }
+
+/* サイドバー: 資料（RAG）セクション */
+.source-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 0.85em;
+}
+
+.source-badge {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.source-badge.type-web {
+  background: #4a9eff;
+}
+
+.source-badge.type-article {
+  background: #9a6ee8;
+}
+
+.source-badge.type-reference {
+  background: #3fb950;
+}
+
+.source-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-count {
+  flex-shrink: 0;
+  font-size: 0.8em;
+  color: var(--faint);
+}
+
+/* サイドバー: 画像セクション */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.image-thumb-wrap {
+  position: relative;
+}
+
+.image-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: block;
+}
+
+.image-thumb:hover {
+  border-color: var(--accent-border);
+}
+
+.image-thumb-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  font-size: 10px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.image-thumb-wrap:hover .image-thumb-delete {
+  display: flex;
+}
