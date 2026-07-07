@@ -1177,6 +1177,11 @@ select:focus-visible {
   color: #ffffff;
 }
 
+/* ダークではさらに暗く落ち着かせる */
+[data-theme='dark'] .source-badge {
+  background: #3f454d;
+}
+
 .source-name {
   flex: 1;
   min-width: 0;
