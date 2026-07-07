@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { DocMeta, RagSource, Workspace, WorkspaceImage } from '../api/client'
+import LibrarySwitcher from '../LibrarySwitcher'
+import { GearIcon } from '../icons'
 
 // サイドバー幅（ドラッグで可変・localStorage に記憶）
 const WIDTH_KEY = 'lm-sidebar-width'
@@ -221,6 +223,8 @@ interface SidebarProps {
   onAddImageFiles: (files: FileList) => void
   onViewImage: (image: WorkspaceImage) => void
   onDeleteImage: (image: WorkspaceImage) => void
+  onLibrarySwitched: () => void // 下部フッターのライブラリ（Vault 相当）切替
+  onOpenSettings: () => void
 }
 
 export default function Sidebar({
@@ -245,6 +249,8 @@ export default function Sidebar({
   onAddImageFiles,
   onViewImage,
   onDeleteImage,
+  onLibrarySwitched,
+  onOpenSettings,
 }: SidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -452,6 +458,7 @@ export default function Sidebar({
   return (
     <div className="sidebar-wrap" style={{ width }}>
     <aside className="sidebar">
+      <div className="sidebar-scroll">
       <section className="sidebar-section">
         <SectionHead
           label="ワークスペース"
@@ -493,6 +500,18 @@ export default function Sidebar({
           })}
         </ul>
       </section>
+      </div>
+      {/* 下部フッター: ライブラリ（Obsidian の Vault 相当）+ 設定 */}
+      <div className="sidebar-footer">
+        <LibrarySwitcher onSwitched={onLibrarySwitched} />
+        <button
+          className="sidebar-footer-btn"
+          onClick={onOpenSettings}
+          title="設定"
+        >
+          <GearIcon />
+        </button>
+      </div>
     </aside>
     <div
       className={`sidebar-resizer${resizing ? ' dragging' : ''}`}

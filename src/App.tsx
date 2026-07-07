@@ -3,14 +3,13 @@ import Sidebar from './workspace/Sidebar'
 import PaneResizer from './workspace/PaneResizer'
 import Editor from './editor/Editor'
 import ModelBar from './ModelBar'
-import LibrarySwitcher from './LibrarySwitcher'
 import WebSearchPanel from './panels/WebSearchPanel'
 import SourceViewer from './panels/SourceViewer'
 import ImageLightbox from './panels/ImageLightbox'
 import ToastHost, { showToast } from './Toast'
 import StatusBar from './StatusBar'
 import SettingsModal from './settings/SettingsModal'
-import { ChartIcon, GearIcon, SearchIcon } from './icons'
+import { ChartIcon, SearchIcon } from './icons'
 import {
   api,
   type AppSettings,
@@ -327,7 +326,6 @@ export default function App() {
   return (
     <div className="app">
       <div className="top-bar">
-        <LibrarySwitcher onSwitched={handleLibrarySwitched} />
         <button
           className="web-search-toggle"
           onClick={() => setWebSearchOpen(true)}
@@ -342,13 +340,6 @@ export default function App() {
           title={statusBarVisible ? 'リソースモニターを隠す' : 'リソースモニターを表示'}
         >
           <ChartIcon />
-        </button>
-        <button
-          className="statusbar-toggle"
-          onClick={() => void openSettings()}
-          title="設定"
-        >
-          <GearIcon />
         </button>
       </div>
       {viewingImage && (
@@ -401,6 +392,8 @@ export default function App() {
         onAddImageFiles={(files) => void addImageFiles(files)}
         onViewImage={setViewingImage}
         onDeleteImage={(img) => void deleteImage(img)}
+        onLibrarySwitched={handleLibrarySwitched}
+        onOpenSettings={() => void openSettings()}
       />
       <main className="editor-area">
         <div className={`workbench${paneResizing ? ' resizing' : ''}`}>
