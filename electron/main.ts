@@ -79,7 +79,7 @@ function createWindow() {
 
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL)
-    mainWindow.webContents.openDevTools({ mode: 'detach' })
+    // DevTools が必要なときは Ctrl+Shift+I で開く（自動起動はしない）
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
