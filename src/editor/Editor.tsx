@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, type Editor as TipTapEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -31,6 +31,7 @@ interface EditorProps {
   registerImageInserter?: (fn: (url: string) => void) => void // サイドバーからの挿入用
   assistOpen: boolean // 右ペイン（執筆支援）の開閉は App が管理
   onToggleAssist: () => void
+  titleSlot?: ReactNode // タイトル入力（App が管理）。ツールバーと本文の間に表示する
 }
 
 interface ReviewState {
@@ -99,6 +100,7 @@ export default function Editor({
   registerImageInserter,
   assistOpen,
   onToggleAssist,
+  titleSlot,
 }: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
   const draftTimer = useRef<number | null>(null)
@@ -569,6 +571,8 @@ export default function Editor({
         />
       )}
       </div>
+      {/* 並び: ツールバー → タイトル → 本文 */}
+      {titleSlot}
       {draftBanner && (
         <div className="draft-banner">
           <span>

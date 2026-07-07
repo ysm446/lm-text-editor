@@ -416,16 +416,6 @@ export default function App() {
             )}
             {currentDoc ? (
               <div className="doc-view">
-                <input
-                  className="doc-title"
-                  value={titleDraft}
-                  onChange={(e) => setTitleDraft(e.target.value)}
-                  onBlur={() => void saveTitle()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                  }}
-                  placeholder="タイトル"
-                />
                 <Editor
                   key={currentDoc.id}
                   docId={currentDoc.id}
@@ -439,6 +429,18 @@ export default function App() {
                   }}
                   assistOpen={assistPaneOpen}
                   onToggleAssist={() => setAssistPaneOpen((v) => !v)}
+                  titleSlot={
+                    <input
+                      className="doc-title"
+                      value={titleDraft}
+                      onChange={(e) => setTitleDraft(e.target.value)}
+                      onBlur={() => void saveTitle()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                      }}
+                      placeholder="タイトル"
+                    />
+                  }
                 />
               </div>
             ) : (
