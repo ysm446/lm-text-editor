@@ -1163,6 +1163,7 @@ select:focus-visible {
   font-size: var(--fs-sm);
 }
 
+/* 資料バッジ: 種別によらず一律グレー（種別は M/R/W の文字で示す） */
 .source-badge {
   flex-shrink: 0;
   width: 16px;
@@ -1172,23 +1173,8 @@ select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #8a8f98;
   color: #ffffff;
-}
-
-.source-badge.type-web {
-  background: #8a8f98; /* Web はグレー（青は主張が強すぎるため） */
-}
-
-.source-badge.type-article {
-  background: #9a6ee8;
-}
-
-.source-badge.type-reference {
-  background: #3fb950;
-}
-
-.source-badge.type-note {
-  background: #7f6df2; /* 手動メモ = アクセント紫 */
 }
 
 .source-name {
