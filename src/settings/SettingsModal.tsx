@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { api, type AppSettings, type EmbedStatus, type LocalModel } from '../api/client'
-import { BookIcon, PencilIcon, PromptIcon, SearchIcon, SunIcon } from '../icons'
+import { BookIcon, PencilIcon, PromptIcon, SearchIcon, SunIcon, TrashIcon } from '../icons'
 
 type Category = 'appearance' | 'editor' | 'llm' | 'prompts' | 'websearch'
 
@@ -22,7 +22,15 @@ const FONT_SIZES = [14, 15, 16, 17, 18, 20]
 
 // コンテキスト長スライダーの選択肢（backend/llm/manager.py の CONTEXT_LENGTHS と対応）
 const CONTEXT_LENGTHS = [4096, 8192, 16384, 32768, 65536, 131072, 262144]
+const CTX_DEFAULT = 16384
 const ctxLabel = (n: number) => `${n / 1024}k`
+
+// スライダーの寸法（目盛りをつまみ中心に合わせるための幾何）
+const SLIDER_W = 260
+const SLIDER_THUMB = 14
+// index → つまみ中心の x 座標（px）。両端は半径ぶん内側に寄る
+const tickX = (i: number, n: number) =>
+  SLIDER_THUMB / 2 + (i / (n - 1)) * (SLIDER_W - SLIDER_THUMB)
 
 interface SettingsModalProps {
   settings: AppSettings
@@ -169,26 +177,50 @@ export default function SettingsModal({
                     LLM が一度に扱えるトークン数（llama-server の -c）。大きいほど長文を
                     扱えますが VRAM を多く消費します。変更は次回のモデル起動時から反映。
                   </p>
-                  <div className="settings-slider">
-                    <input
-                      type="range"
-                      min={0}
-                      max={CONTEXT_LENGTHS.length - 1}
-                      step={1}
-                      value={Math.max(0, CONTEXT_LENGTHS.indexOf(settings.context_length))}
-                      onChange={(e) =>
-                        onChange({ context_length: CONTEXT_LENGTHS[Number(e.target.value)] })
-                      }
-                    />
-                    <span className="settings-slider-value">
-                      {ctxLabel(settings.context_length)}
-                    </span>
-                  </div>
-                  <div className="settings-slider-ticks">
-                    {CONTEXT_LENGTHS.map((n) => (
-                      <span key={n}>{ctxLabel(n)}</span>
-                    ))}
-                  </div>
+                  {(() => {
+                    const idx = Math.max(0, CONTEXT_LENGTHS.indexOf(settings.context_length))
+                    return (
+                      <>
+                        <div className="settings-slider">
+                          <input
+                            type="range"
+                            className="settings-slider-input"
+                            min={0}
+                            max={CONTEXT_LENGTHS.length - 1}
+                            step={1}
+                            value={idx}
+                            onChange={(e) =>
+                              onChange({
+                                context_length: CONTEXT_LENGTHS[Number(e.target.value)],
+                              })
+                            }
+                            style={
+                              {
+                                '--fill': `${tickX(idx, CONTEXT_LENGTHS.length)}px`,
+                              } as CSSProperties
+                            }
+                          />
+                          <button
+                            className="settings-reset-btn"
+                            title="既定（16k）に戻す"
+                            onClick={() => onChange({ context_length: CTX_DEFAULT })}
+                          >
+                            <TrashIcon size={14} />
+                          </button>
+                          <span className="settings-slider-value">
+                            {ctxLabel(settings.context_length)}
+                          </span>
+                        </div>
+                        <div className="settings-slider-ticks" style={{ width: SLIDER_W }}>
+                          {CONTEXT_LENGTHS.map((n, i) => (
+                            <span key={n} style={{ left: tickX(i, CONTEXT_LENGTHS.length) }}>
+                              {ctxLabel(n)}
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )
+                  })()}
                 </section>
                 <section>
                   <h3>埋め込みモデル（RAG 検索）</h3>

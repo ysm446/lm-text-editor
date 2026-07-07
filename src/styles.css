@@ -2173,34 +2173,88 @@ select:focus-visible {
   color: var(--muted);
 }
 
-/* コンテキスト長などのスライダー */
+/* コンテキスト長などのスライダー（細いトラック + つまみに揃えた目盛り） */
 .settings-slider {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.settings-slider input[type='range'] {
-  flex: 1;
-  accent-color: var(--accent);
+.settings-slider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 260px;
+  flex: none;
+  height: 14px;
+  background: transparent;
   cursor: pointer;
 }
 
+.settings-slider-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  /* --fill（px）までアクセント色、以降はトラック色 */
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--fill, 50%),
+    var(--border) var(--fill, 50%)
+  );
+}
+
+.settings-slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px; /* 4px トラックに対してつまみを中央寄せ (4-14)/2 */
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+}
+
+/* 既定値に戻すボタン（ゴミ箱・値の左に置く共通 UI） */
+.settings-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto; /* 値とセットで右端に寄せる */
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: var(--radius-s);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.settings-reset-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
 .settings-slider-value {
-  min-width: 48px;
-  text-align: right;
+  min-width: 46px;
+  text-align: center;
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
+/* 目盛り: つまみ中心の x 座標（inline style の left）に絶対配置 */
 .settings-slider-ticks {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 4px;
-  padding-right: 60px; /* 値ラベル分を除いてトラック幅に合わせる */
+  position: relative;
+  height: 1.3em;
+  margin-top: 6px;
   font-size: var(--fs-xs);
   color: var(--faint);
   font-variant-numeric: tabular-nums;
+}
+
+.settings-slider-ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 /* セクション間隔（LLM タブなど複数セクションを縦に並べる場合） */
