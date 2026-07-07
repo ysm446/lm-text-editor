@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'node:path'
 
 // vite-plugin-electron が dev 時に設定する環境変数
@@ -15,6 +15,23 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  })
+
+  // 外部リンクは OS 既定のブラウザで開く（アプリ内で開かない）
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      void shell.openExternal(url)
+    }
+    return { action: 'deny' }
+  })
+
+  // SPA は自発的にページ遷移しないため、ページ発のナビゲーションは全て抑止する
+  // （リンククリックは外部ブラウザへ、ドロップされたファイルへの遷移は無視）
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault()
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      void shell.openExternal(url)
+    }
   })
 
   if (VITE_DEV_SERVER_URL) {

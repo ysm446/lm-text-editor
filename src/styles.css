@@ -250,15 +250,29 @@ body {
 }
 
 .web-result-title {
+  display: block;
   font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+
+.web-result-title:hover {
+  color: #0969da;
+  text-decoration: underline;
 }
 
 .web-result-url {
+  display: block;
   font-size: 0.8em;
   color: #0969da;
+  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.web-result-url:hover {
+  text-decoration: underline;
 }
 
 .web-result-snippet {

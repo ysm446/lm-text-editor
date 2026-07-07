@@ -20,11 +20,23 @@ export default function WebSearchPanel({ workspaceId, onClose }: WebSearchPanelP
   const [error, setError] = useState<string | null>(null)
   const [ingests, setIngests] = useState<Record<string, IngestState>>({})
 
+  const isUrl = (s: string) => s.startsWith('http://') || s.startsWith('https://')
+
   const runSearch = async () => {
     const q = query.trim()
     if (!q || searching) return
-    setSearching(true)
     setError(null)
+
+    // URL を直接指定した場合は検索せず、その URL を取り込み対象として表示する
+    if (isUrl(q)) {
+      setQueries([])
+      setResults([
+        { title: q, url: q, snippet: '（URL 直接指定）', query: q },
+      ])
+      return
+    }
+
+    setSearching(true)
     setResults(null)
     try {
       const res = await api.webSearch(q)
@@ -62,7 +74,7 @@ export default function WebSearchPanel({ workspaceId, onClose }: WebSearchPanelP
         <div className="web-search-form">
           <input
             autoFocus
-            placeholder="調べたいこと（例: sqlite-vec の最新バージョンと変更点）"
+            placeholder="調べたいこと、または URL を直接指定（https://…）"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -71,7 +83,7 @@ export default function WebSearchPanel({ workspaceId, onClose }: WebSearchPanelP
             disabled={searching}
           />
           <button disabled={searching || !query.trim()} onClick={() => void runSearch()}>
-            {searching ? '検索中…' : '検索'}
+            {searching ? '検索中…' : isUrl(query.trim()) ? 'URL を指定' : '検索'}
           </button>
         </div>
         {queries.length > 1 && (
@@ -89,8 +101,25 @@ export default function WebSearchPanel({ workspaceId, onClose }: WebSearchPanelP
             return (
               <div key={r.url} className="web-result">
                 <div className="web-result-main">
-                  <div className="web-result-title">{r.title}</div>
-                  <div className="web-result-url">{r.url}</div>
+                  {/* target=_blank は Electron 側で shell.openExternal に流される */}
+                  <a
+                    className="web-result-title"
+                    href={r.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="既定のブラウザで開く"
+                  >
+                    {r.title} ↗
+                  </a>
+                  <a
+                    className="web-result-url"
+                    href={r.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="既定のブラウザで開く"
+                  >
+                    {r.url}
+                  </a>
                   {r.snippet && <div className="web-result-snippet">{r.snippet}</div>}
                   {ing?.status === 'done' && (
                     <div className="web-result-ingested">
