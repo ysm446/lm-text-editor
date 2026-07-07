@@ -61,10 +61,14 @@ function createWindow() {
     },
   })
 
-  // F12 でスクリーンショット
+  // F12 でスクリーンショット / Ctrl+Shift+I で DevTools
+  // （アプリメニューを消しているため、必要なショートカットはここで処理する）
   mainWindow.webContents.on('before-input-event', (_event, input) => {
-    if (input.type === 'keyDown' && input.key === 'F12' && mainWindow) {
+    if (input.type !== 'keyDown' || !mainWindow) return
+    if (input.key === 'F12') {
       void saveScreenshot(mainWindow)
+    } else if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+      mainWindow.webContents.toggleDevTools()
     }
   })
 
@@ -114,6 +118,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null) // File / Edit 等の既定メニューは使わない
+
   ipcMain.handle(
     'lm-editor:choose-library-folder',
     async (_event, mode?: 'open' | 'create') => {
