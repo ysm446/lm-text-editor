@@ -124,6 +124,54 @@ def _health(port: int) -> str:
         return "down"
 
 
+def _pid_on_port(port: int) -> int | None:
+    """指定ポートを LISTEN している TCP プロセスの PID（netstat）。"""
+    try:
+        out = subprocess.run(
+            ["netstat", "-ano", "-p", "TCP"], capture_output=True, text=True, timeout=10
+        ).stdout
+    except Exception:
+        return None
+    for line in out.splitlines():
+        parts = line.split()
+        # 例: TCP  127.0.0.1:8080  0.0.0.0:0  LISTENING  35428
+        if len(parts) >= 5 and parts[0] == "TCP" and parts[3].upper() == "LISTENING":
+            if parts[1].endswith(f":{port}"):
+                try:
+                    return int(parts[-1])
+                except ValueError:
+                    continue
+    return None
+
+
+def _stop_on_port(port: int) -> bool:
+    """指定ポートの llama-server を停止する（PID をプロセス名で検証してから kill）。
+
+    外部起動（bat 等）や追跡が切れた居残りサーバをアプリから引き取って停止するため。
+    プロセス名が llama-server でなければ何もしない（別アプリを誤って殺さない）。
+    """
+    pid = _pid_on_port(port)
+    if pid and _pid_is_llama_server(pid):
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+        logger.info("stopped llama-server on port %s pid=%s", port, pid)
+        return True
+    return False
+
+
+def _query_loaded_model(port: int) -> str | None:
+    """稼働中の llama-server が読み込んでいるモデルのパス（/v1/models）。"""
+    try:
+        res = httpx.get(f"http://127.0.0.1:{port}/v1/models", timeout=2)
+        if res.status_code != 200:
+            return None
+        items = res.json().get("data") or res.json().get("models") or []
+        if items:
+            return items[0].get("id") or items[0].get("name")
+    except Exception:
+        return None
+    return None
+
+
 def _kill_tracked(slot: str) -> None:
     state = _load_state()
     slot_state = state.get(slot) or {}
@@ -163,12 +211,15 @@ def get_status(slot: str) -> dict[str, Any]:
     else:
         status = health
 
+    external = health != "down" and not tracked
+    active = slot_state.get("active_model_path") if (tracked or health != "down") else None
+    # 外部起動サーバは state にパスが無いので、稼働中のモデルを直接問い合わせて表示に使う
+    if external and not active:
+        active = _query_loaded_model(spec["port"])
     return {
         "status": status,  # 'stopped' | 'loading' | 'ready'
-        "active_model_path": slot_state.get("active_model_path")
-        if (tracked or health != "down")
-        else None,
-        "external": health != "down" and not tracked,
+        "active_model_path": active,
+        "external": external,
     }
 
 
@@ -188,13 +239,10 @@ def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
     if not LLAMA_EXE.exists():
         raise ValueError(f"llama-server が見つかりません: {LLAMA_EXE}")
 
-    status = get_status(slot)
-    if status["external"]:
-        raise ValueError(
-            f"外部起動の llama-server が :{spec['port']} で稼働中です。先にそちらを停止してください。"
-        )
-
+    # 追跡中サーバを停止。外部起動（追跡外）が自ポートに居座っている場合も引き取って停止する
     _kill_tracked(slot)
+    if get_status(slot)["external"]:
+        _stop_on_port(spec["port"])
     time.sleep(1)
 
     cmd = [
@@ -233,6 +281,8 @@ def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
 
 def stop(slot: str) -> dict[str, Any]:
     _kill_tracked(slot)
+    # 追跡が切れて居残った / 外部起動の llama-server もアプリから停止できるようにする
+    _stop_on_port(SLOTS[slot]["port"])
     state = _load_state()
     state[slot] = {"pid": None, "active_model_path": None}
     _save_state(state)

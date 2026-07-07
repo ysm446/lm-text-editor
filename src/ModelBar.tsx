@@ -90,10 +90,10 @@ export default function ModelBar() {
       : loading
         ? '起動中…（1〜2分）'
         : ready
-          ? status.external
-            ? '外部起動の LLM (:8080)'
-            : status.active_model_path
-              ? fileName(status.active_model_path)
+          ? status.active_model_path
+            ? `${fileName(status.active_model_path)}${status.external ? '（外部）' : ''}`
+            : status.external
+              ? '外部起動の LLM'
               : 'LLM 稼働中'
           : 'モデルをロードしてください'
 
@@ -162,19 +162,18 @@ export default function ModelBar() {
                 <div className="modal-footer-actions">
                   <button
                     className="primary"
-                    disabled={
-                      !selected ||
-                      loading ||
-                      status == null ||
-                      status.external ||
-                      isActiveSelected
-                    }
+                    disabled={!selected || loading || status == null || isActiveSelected}
                     onClick={() => void start()}
+                    title={
+                      status?.external
+                        ? '外部起動の LLM を停止してから選択モデルを起動します'
+                        : undefined
+                    }
                   >
-                    {ready && !status?.external ? '切替' : 'ロード'}
+                    {ready ? '切替' : 'ロード'}
                   </button>
                   <button
-                    disabled={st === 'stopped' || status?.external || status == null}
+                    disabled={st === 'stopped' || status == null}
                     onClick={() => void eject()}
                   >
                     アンロード
