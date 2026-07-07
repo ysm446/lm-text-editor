@@ -507,6 +507,10 @@ export default function Editor({
 
   return (
     <div className="editor-root">
+      {/* 書式ツール（太字・見出し・リスト等）は本文に付随する浮いたバー（ドラッグで移動可・位置は記憶） */}
+      <ToolPalette title="書式">
+        <FormatToolbar editor={editor} />
+      </ToolPalette>
       {/* スクロールしても操作ツールバーは上部に固定表示する */}
       <div className="editor-toolbars">
       <div className="toolbar-row">
@@ -572,10 +576,6 @@ export default function Editor({
         />
       )}
       </div>
-      {/* 書式ツール（太字・見出し・リスト等）は浮いたパレット（ドラッグで移動可・位置は記憶） */}
-      <ToolPalette title="書式">
-        <FormatToolbar editor={editor} />
-      </ToolPalette>
       {/* 並び: ツールバー → タイトル → 本文 */}
       {titleSlot}
       {draftBanner && (

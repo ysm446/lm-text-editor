@@ -1120,28 +1120,41 @@ select:focus-visible {
   font-weight: 400;
 }
 
-/* 書式ツールのフローティングパレット: ドラッグで移動できる浮いたウインドウ */
+/* 書式ツールのフローティングパレット: ドラッグで移動できる横長のバー。
+   sticky なアンカー（高さ 0）を基準に絶対配置し、本文ステージに付随させる */
+.tool-palette-anchor {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 60; /* sticky ツールバー(50)より上、モーダル(100+)より下 */
+}
+
 .tool-palette {
-  position: fixed;
-  z-index: 90; /* sticky ツールバー(50)より上、モーダル(100+)より下 */
-  width: 176px;
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-l);
   box-shadow: var(--shadow-2);
-  padding: 4px;
+  padding: 4px 8px 4px 4px;
 }
 
 .tool-palette-grip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px 6px;
+  gap: 4px;
+  align-self: stretch;
+  padding: 0 6px;
   font-size: var(--fs-xs);
   color: var(--muted);
   cursor: grab;
   user-select: none;
   touch-action: none; /* Pointer Events でドラッグするため既定ジェスチャを無効化 */
+  border-right: 1px solid var(--border);
 }
 
 .tool-palette-grip.dragging {
@@ -1153,23 +1166,18 @@ select:focus-visible {
 }
 
 .tool-palette-body {
-  padding: 0 2px 2px;
+  min-width: 0;
 }
 
-/* パレット内の書式ツール: 折り返してグリッド状に並べる */
+/* パレット内の書式ツール: 1 行ベース、狭いときだけ折り返す */
 .tool-palette .format-toolbar {
   flex-wrap: wrap;
   gap: 2px;
   padding: 0;
 }
 
-.tool-palette .format-sep {
-  display: none; /* 折り返すと縦線が浮くため、パレット内では区切りを出さない */
-}
-
 .tool-palette .format-link-input {
-  width: 100%;
-  margin-top: 4px;
+  width: 220px;
 }
 
 .dirty-indicator {
