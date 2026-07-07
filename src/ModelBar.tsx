@@ -88,7 +88,7 @@ export default function ModelBar() {
     status == null
       ? 'backend 未接続'
       : loading
-        ? '起動中…（1〜2分）'
+        ? '起動中…'
         : ready
           ? status.active_model_path
             ? `${fileName(status.active_model_path)}${status.external ? '（外部）' : ''}`
