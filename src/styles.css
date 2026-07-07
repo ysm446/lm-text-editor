@@ -541,7 +541,7 @@ select:focus-visible {
   gap: 10px;
   height: 30px;
   width: auto;
-  min-width: 180px;
+  min-width: 240px;
   max-width: min(440px, 38vw);
   padding: 0 12px;
   border: 1px solid transparent;
