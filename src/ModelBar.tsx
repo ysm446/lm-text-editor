@@ -15,7 +15,6 @@ function sizeGB(bytes: number): string {
 export default function ModelBar() {
   const [models, setModels] = useState<LocalModel[]>([])
   const [status, setStatus] = useState<LlamaStatus | null>(null)
-  const [ornith, setOrnith] = useState<LlamaStatus | null>(null)
   const [selected, setSelected] = useState('')
   const [switching, setSwitching] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,11 +27,6 @@ export default function ModelBar() {
       if (s.status !== 'loading') setSwitching(false)
     } catch {
       setStatus(null) // backend 自体が落ちている
-    }
-    try {
-      setOrnith(await api.ornithStatus())
-    } catch {
-      setOrnith(null)
     }
   }, [])
 
@@ -127,39 +121,6 @@ export default function ModelBar() {
             disabled={status == null}
             onClick={() => void eject()}
             title="llama-server を停止して VRAM を解放"
-          >
-            停止
-          </button>
-        )}
-
-        <span className="model-bar-divider" />
-        <span
-          className={`model-dot ${ornith?.status === 'loading' ? 'loading' : ornith?.status === 'shared' ? (st === 'ready' ? 'ready' : 'stopped') : (ornith?.status ?? 'stopped')}`}
-        />
-        <span className="ornith-label" title="検索クエリ分解・要約用の LLM (:8081)">
-          検索LLM
-        </span>
-        {ornith?.status === 'shared' && (
-          <span className="ornith-shared" title="設定で「文章用と同じ」が選ばれています">
-            文章用と共用
-          </span>
-        )}
-        {ornith?.status === 'stopped' && (
-          <button
-            disabled={ornith == null}
-            onClick={() => void api.ornithStart().then(poll).catch((e) => setError(String(e)))}
-            title="ornith 9B を起動（Web 検索のクエリ分解・要約に使用）"
-          >
-            起動
-          </button>
-        )}
-        {ornith != null &&
-          ornith.status !== 'stopped' &&
-          ornith.status !== 'shared' &&
-          !ornith.external && (
-          <button
-            onClick={() => void api.ornithStop().then(poll).catch((e) => setError(String(e)))}
-            title="ornith 9B を停止"
           >
             停止
           </button>

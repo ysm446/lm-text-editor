@@ -88,7 +88,7 @@ export default function WebSearchPanel({ workspaceId, onClose }: WebSearchPanelP
         </div>
         {queries.length > 1 && (
           <div className="web-search-queries">
-            検索クエリ（ornith 分解）: {queries.join(' / ')}
+            検索クエリ（LLM 分解）: {queries.join(' / ')}
           </div>
         )}
         {error && <div className="web-search-error">{error}</div>}
@@ -138,7 +138,7 @@ export default function WebSearchPanel({ workspaceId, onClose }: WebSearchPanelP
                   <button
                     disabled={ing?.status === 'ingesting' || ing?.status === 'done'}
                     onClick={() => void ingest(r.url)}
-                    title="本文を取得して RAG に保存します（原文チャンク + ornith 要約）"
+                    title="本文を取得して RAG に保存します（原文チャンク + LLM 要約）"
                   >
                     {ing?.status === 'ingesting'
                       ? '取り込み中…'

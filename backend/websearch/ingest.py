@@ -1,7 +1,7 @@
 ﻿"""Web ページの取り込み: 取得 → 抽出 → 二層保存（spec.md §8, §9）。
 
 - 一次: 原文チャンク（rag_chunk, source_type='web'）— 引用・裏取り用
-- 二次: ソースノート（source_note）— ornith の要約。俯瞰と当たり付け用
+- 二次: ソースノート（source_note）— 文章用 LLM の要約。俯瞰と当たり付け用
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from backend.websearch.extract import fetch_and_extract
 
 logger = logging.getLogger(__name__)
 
-SUMMARY_MAX_INPUT_CHARS = 8000  # 9B のプロンプトに入れる上限（news-picker と同値）
+SUMMARY_MAX_INPUT_CHARS = 8000  # 要約プロンプトに入れる本文の上限（news-picker と同値）
 
 SUMMARY_SYSTEM = (
     "あなたは技術記事執筆のためのリサーチアシスタントです。"
@@ -30,12 +30,13 @@ SUMMARY_SYSTEM = (
 
 
 async def summarize(text: str, title: str) -> str | None:
-    """ornith が起動していれば要約を返す。いなければ None。"""
-    if not await llm_client.is_alive(router.search_base_url()):
+    """文章用 LLM が起動していれば要約を返す。いなければ None。"""
+    base_url = router.route("websearch")["base_url"]
+    if not await llm_client.is_alive(base_url):
         return None
     try:
         raw = await llm_client.chat(
-            router.search_base_url(),
+            base_url,
             [
                 {"role": "system", "content": SUMMARY_SYSTEM},
                 {

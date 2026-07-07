@@ -66,7 +66,7 @@ export default function SourceViewer({
             <>
               {detail.notes.map((n) => (
                 <div key={n.id} className="source-viewer-note">
-                  <h3>要約ノート（ornith）</h3>
+                  <h3>要約ノート（LLM）</h3>
                   <div className="source-viewer-text">{n.summary}</div>
                 </div>
               ))}

@@ -20,19 +20,10 @@ TASK_ROUTES: dict[str, Route] = {
     "review": {"base_url": config.GEMMA_BASE_URL, "temperature": 0.3},
     # 画像理解 / キャプション: Gemma 4
     "image": {"base_url": config.GEMMA_BASE_URL, "temperature": 0.5},
-    # Web 検索クエリ分解・要約: ornith 9B（フェーズ 4 で使用開始）
-    "websearch": {"base_url": config.ORNITH_BASE_URL, "temperature": 0.7},
+    # Web 検索クエリ分解・要約: 文章用 LLM に一本化
+    "websearch": {"base_url": config.GEMMA_BASE_URL, "temperature": 0.7},
 }
 
 
 def route(task: str) -> Route:
     return TASK_ROUTES[task]
-
-
-def search_base_url() -> str:
-    """検索・要約タスクの接続先。「文章用と共用」設定なら :8080 に向ける。"""
-    from backend import settings_store
-
-    if settings_store.read().get("search_model_path") == "same":
-        return config.GEMMA_BASE_URL
-    return config.ORNITH_BASE_URL

@@ -1,6 +1,5 @@
 @echo off
-rem lm-text-editor LLM server launcher (Gemma 4, port 8080)
-rem ornith 9B (port 8081) will be added in phase 4.
+rem lm-text-editor LLM server launcher (single LLM, port 8080)
 rem NOTE: keep this file ASCII-only (cmd parses .bat with the system codepage)
 
 cd /d "%~dp0"

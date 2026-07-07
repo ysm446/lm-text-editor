@@ -169,14 +169,13 @@ def system_resources() -> dict[str, Any]:
 def shutdown() -> dict[str, bool]:
     """アプリ終了時に Electron から呼ばれる。
 
-    追跡中の llama-server（gemma / ornith）を停止してから自身も終了する。
+    追跡中の llama-server（gemma）を停止してから自身も終了する。
     外部起動（bat 等）の llama-server は殺さない。
     """
 
     def _exit() -> None:
         try:
             llm_manager.stop("gemma")
-            llm_manager.stop("ornith")
         finally:
             os._exit(0)
 
@@ -189,7 +188,6 @@ class SettingsUpdate(BaseModel):
     editor_font_size: int | None = None
     tavily_api_key: str | None = None
     writing_model_path: str | None = None
-    search_model_path: str | None = None  # "" = 既定の ornith / "same" = 文章用と共用
 
 
 @app.get("/settings")
@@ -382,30 +380,9 @@ def llama_eject() -> dict[str, Any]:
     return llm_manager.stop("gemma")
 
 
-@app.get("/ornith/status")
-def ornith_status() -> dict[str, Any]:
-    if llm_manager.search_is_shared():
-        # 「文章用と共用」設定: 個別サーバは持たない
-        return {"status": "shared", "active_model_path": None, "external": False}
-    return llm_manager.get_status("ornith")
-
-
-@app.post("/ornith/start")
-def ornith_start() -> dict[str, Any]:
-    try:
-        return llm_manager.start("ornith")
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.post("/ornith/stop")
-def ornith_stop() -> dict[str, Any]:
-    return llm_manager.stop("ornith")
-
-
 @app.post("/web/search")
 async def web_search_endpoint(body: WebSearchRequest) -> dict[str, Any]:
-    """Web 検索（ornith 起動時はクエリ分解あり）。"""
+    """Web 検索（文章用 LLM 起動時はクエリ分解あり）。"""
     if not body.query.strip():
         raise HTTPException(status_code=400, detail="query is required")
     try:

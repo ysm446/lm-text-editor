@@ -524,22 +524,6 @@ select:focus-visible {
   min-width: 0;
 }
 
-.model-bar-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--bar-border);
-  margin: 0 4px;
-}
-
-.ornith-label {
-  white-space: nowrap;
-}
-
-.ornith-shared {
-  color: var(--bar-muted);
-  white-space: nowrap;
-}
-
 .model-dot {
   width: 8px;
   height: 8px;

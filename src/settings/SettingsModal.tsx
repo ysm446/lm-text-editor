@@ -109,44 +109,24 @@ export default function SettingsModal({
               </section>
             )}
             {active === 'llm' && (
-              <>
-                <section>
-                  <h3>文章用 LLM（執筆・校正）</h3>
-                  <p className="settings-desc">
-                    モデルバーの「起動」で使われる既定モデル。切替は次回起動時から。
-                  </p>
-                  <select
-                    value={settings.writing_model_path}
-                    onChange={(e) => onChange({ writing_model_path: e.target.value })}
-                  >
-                    <option value="">未設定（モデルバーで都度選択）</option>
-                    {models.map((m) => (
-                      <option key={m.path} value={m.path}>
-                        {m.id}（{(m.size_bytes / 1024 ** 3).toFixed(1)} GB）
-                      </option>
-                    ))}
-                  </select>
-                </section>
-                <section>
-                  <h3>Web 検索用 LLM（クエリ分解・要約）</h3>
-                  <p className="settings-desc">
-                    「文章用と同じ」にすると 1 つの LLM で兼用します（VRAM
-                    節約。検索用の個別起動が不要になります）。
-                  </p>
-                  <select
-                    value={settings.search_model_path}
-                    onChange={(e) => onChange({ search_model_path: e.target.value })}
-                  >
-                    <option value="">既定（ornith 9B）</option>
-                    <option value="same">文章用と同じ（1 つの LLM で兼用）</option>
-                    {models.map((m) => (
-                      <option key={m.path} value={m.path}>
-                        {m.id}（{(m.size_bytes / 1024 ** 3).toFixed(1)} GB）
-                      </option>
-                    ))}
-                  </select>
-                </section>
-              </>
+              <section>
+                <h3>LLM モデル</h3>
+                <p className="settings-desc">
+                  モデルバーの「起動」で使われる既定モデル。執筆・校正・Web
+                  検索のクエリ分解・要約すべてにこのモデルを使います。切替は次回起動時から。
+                </p>
+                <select
+                  value={settings.writing_model_path}
+                  onChange={(e) => onChange({ writing_model_path: e.target.value })}
+                >
+                  <option value="">未設定（モデルバーで都度選択）</option>
+                  {models.map((m) => (
+                    <option key={m.path} value={m.path}>
+                      {m.id}（{(m.size_bytes / 1024 ** 3).toFixed(1)} GB）
+                    </option>
+                  ))}
+                </select>
+              </section>
             )}
             {active === 'websearch' && (
               <section>

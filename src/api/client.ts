@@ -110,8 +110,7 @@ export interface AppSettings {
   theme: string // 'light' | 'dark'（今後パターン追加予定）
   editor_font_size: number
   tavily_api_key: string
-  writing_model_path: string // 文章用 LLM（'' = 未設定）
-  search_model_path: string // Web 検索用 LLM（'' = 既定 ornith / 'same' = 文章用と共用）
+  writing_model_path: string // 文章用 LLM（'' = 未設定）。検索・要約もこのモデルを使う
 }
 
 export interface GpuStat {
@@ -137,7 +136,7 @@ export interface LocalModel {
 }
 
 export interface LlamaStatus {
-  status: 'stopped' | 'loading' | 'ready' | 'shared'
+  status: 'stopped' | 'loading' | 'ready'
   active_model_path: string | null
   external: boolean
 }
@@ -272,14 +271,6 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(patch),
     }),
-
-  ornithStatus: () => request<LlamaStatus>('/ornith/status'),
-
-  ornithStart: () =>
-    request<{ status: string }>('/ornith/start', { method: 'POST' }),
-
-  ornithStop: () =>
-    request<{ status: string }>('/ornith/stop', { method: 'POST' }),
 
   listRagSources: (workspaceId: number) =>
     request<RagSource[]>(`/rag/sources?workspace_id=${workspaceId}`),
