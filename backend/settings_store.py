@@ -18,6 +18,8 @@ DEFAULTS: dict[str, Any] = {
     # 文章用 LLM（:8080）の既定モデル（models/ 配下の絶対パス）。
     # "" = 未設定（モデルバーで都度選択）。検索・要約もこのモデルを使う
     "writing_model_path": "",
+    # llama-server のコンテキスト長（-c）。次回起動時から反映。大きいほど VRAM を使う
+    "context_length": 16384,
 }
 
 

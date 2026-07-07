@@ -111,6 +111,7 @@ export interface AppSettings {
   editor_font_size: number
   tavily_api_key: string
   writing_model_path: string // 文章用 LLM（'' = 未設定）。検索・要約もこのモデルを使う
+  context_length: number // llama-server の -c（次回起動時から反映）
 }
 
 export interface GpuStat {

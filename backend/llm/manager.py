@@ -25,6 +25,19 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 LLAMA_EXE = ROOT_DIR / "runtime" / "llama.cpp" / "llama-server.exe"
 MODELS_DIR = ROOT_DIR / "models"
 
+# コンテキスト長（-c）の選択肢。設定のスライダーと対応（4k〜256k）
+CONTEXT_LENGTHS = [4096, 8192, 16384, 32768, 65536, 131072, 262144]
+DEFAULT_CONTEXT_LENGTH = 16384
+
+
+def _context_length() -> int:
+    """設定のコンテキスト長を許可値にスナップして返す。"""
+    try:
+        n = int(settings_store.read().get("context_length") or DEFAULT_CONTEXT_LENGTH)
+    except (TypeError, ValueError):
+        return DEFAULT_CONTEXT_LENGTH
+    return n if n in CONTEXT_LENGTHS else DEFAULT_CONTEXT_LENGTH
+
 
 def resolve_slot_model(slot: str) -> Path | None:
     """設定からスロットの既定モデルを解決する。"""
@@ -42,8 +55,9 @@ def _port_of(base_url: str) -> int:
 SLOTS: dict[str, dict[str, Any]] = {
     "gemma": {
         "port": _port_of(config.GEMMA_BASE_URL),
-        # Gemma 4 は reasoning モデルのため --reasoning-budget 0 必須（CLAUDE.md 参照）
-        "args": ["-ngl", "99", "-c", "16384", "--jinja", "--reasoning-budget", "0"],
+        # Gemma 4 は reasoning モデルのため --reasoning-budget 0 必須（CLAUDE.md 参照）。
+        # -c（コンテキスト長）は設定値を start() で付与する
+        "args": ["-ngl", "99", "--jinja", "--reasoning-budget", "0"],
     },
 }
 
@@ -188,6 +202,7 @@ def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
         "-m", str(p),
         "--host", "127.0.0.1",
         "--port", str(spec["port"]),
+        "-c", str(_context_length()),
         *spec["args"],
     ]
     mmproj = next(

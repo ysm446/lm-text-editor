@@ -728,6 +728,7 @@ select:focus-visible {
 /* フッター内のライブラリボタンはバー用の暗色ではなくサイドバー配色に上書き */
 .sidebar-footer .library-switcher-btn {
   width: 100%;
+  max-width: none; /* フッター幅いっぱいに広げ、シェブロンを右端に寄せる */
   justify-content: flex-start;
   background: none;
   color: var(--text);
@@ -1040,7 +1041,7 @@ select:focus-visible {
 }
 
 .source-badge.type-web {
-  background: #4a9eff;
+  background: #8a8f98; /* Web はグレー（青は主張が強すぎるため） */
 }
 
 .source-badge.type-article {
@@ -2031,6 +2032,41 @@ select:focus-visible {
   margin: 0 0 12px;
   font-size: var(--fs-sm);
   color: var(--muted);
+}
+
+/* コンテキスト長などのスライダー */
+.settings-slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-slider input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.settings-slider-value {
+  min-width: 48px;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-right: 60px; /* 値ラベル分を除いてトラック幅に合わせる */
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* セクション間隔（LLM タブなど複数セクションを縦に並べる場合） */
+.settings-panel section + section {
+  margin-top: 22px;
 }
 
 .settings-theme-options {

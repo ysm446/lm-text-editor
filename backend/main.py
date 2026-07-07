@@ -188,6 +188,7 @@ class SettingsUpdate(BaseModel):
     editor_font_size: int | None = None
     tavily_api_key: str | None = None
     writing_model_path: str | None = None
+    context_length: int | None = None
 
 
 @app.get("/settings")

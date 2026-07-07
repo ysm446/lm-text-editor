@@ -19,6 +19,10 @@ const THEMES: { value: string; label: string }[] = [
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20]
 
+// コンテキスト長スライダーの選択肢（backend/llm/manager.py の CONTEXT_LENGTHS と対応）
+const CONTEXT_LENGTHS = [4096, 8192, 16384, 32768, 65536, 131072, 262144]
+const ctxLabel = (n: number) => `${n / 1024}k`
+
 interface SettingsModalProps {
   settings: AppSettings
   onChange: (patch: Partial<AppSettings>) => void // 変更は即保存・即適用
@@ -109,24 +113,53 @@ export default function SettingsModal({
               </section>
             )}
             {active === 'llm' && (
-              <section>
-                <h3>LLM モデル</h3>
-                <p className="settings-desc">
-                  モデルバーの「起動」で使われる既定モデル。執筆・校正・Web
-                  検索のクエリ分解・要約すべてにこのモデルを使います。切替は次回起動時から。
-                </p>
-                <select
-                  value={settings.writing_model_path}
-                  onChange={(e) => onChange({ writing_model_path: e.target.value })}
-                >
-                  <option value="">未設定（モデルバーで都度選択）</option>
-                  {models.map((m) => (
-                    <option key={m.path} value={m.path}>
-                      {m.id}（{(m.size_bytes / 1024 ** 3).toFixed(1)} GB）
-                    </option>
-                  ))}
-                </select>
-              </section>
+              <>
+                <section>
+                  <h3>LLM モデル</h3>
+                  <p className="settings-desc">
+                    モデルバーの「起動」で使われる既定モデル。執筆・校正・Web
+                    検索のクエリ分解・要約すべてにこのモデルを使います。切替は次回起動時から。
+                  </p>
+                  <select
+                    value={settings.writing_model_path}
+                    onChange={(e) => onChange({ writing_model_path: e.target.value })}
+                  >
+                    <option value="">未設定（モデルバーで都度選択）</option>
+                    {models.map((m) => (
+                      <option key={m.path} value={m.path}>
+                        {m.id}（{(m.size_bytes / 1024 ** 3).toFixed(1)} GB）
+                      </option>
+                    ))}
+                  </select>
+                </section>
+                <section>
+                  <h3>コンテキスト長</h3>
+                  <p className="settings-desc">
+                    LLM が一度に扱えるトークン数（llama-server の -c）。大きいほど長文を
+                    扱えますが VRAM を多く消費します。変更は次回のモデル起動時から反映。
+                  </p>
+                  <div className="settings-slider">
+                    <input
+                      type="range"
+                      min={0}
+                      max={CONTEXT_LENGTHS.length - 1}
+                      step={1}
+                      value={Math.max(0, CONTEXT_LENGTHS.indexOf(settings.context_length))}
+                      onChange={(e) =>
+                        onChange({ context_length: CONTEXT_LENGTHS[Number(e.target.value)] })
+                      }
+                    />
+                    <span className="settings-slider-value">
+                      {ctxLabel(settings.context_length)}
+                    </span>
+                  </div>
+                  <div className="settings-slider-ticks">
+                    {CONTEXT_LENGTHS.map((n) => (
+                      <span key={n}>{ctxLabel(n)}</span>
+                    ))}
+                  </div>
+                </section>
+              </>
             )}
             {active === 'websearch' && (
               <section>
