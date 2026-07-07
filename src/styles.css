@@ -643,7 +643,8 @@ select:focus-visible {
   padding: 16px 12px;
 }
 
-/* 右端のリサイズハンドル: 普段は透明、hover / ドラッグ中にアクセントの線を出す */
+/* 右端のリサイズハンドル: 当たり判定は広く、見た目は中央の細い線だけ（Obsidian 流）。
+   線は疑似要素で描き、hover / ドラッグ中にアクセント色でフェードインさせる */
 .sidebar-resizer {
   position: absolute;
   top: 0;
@@ -655,10 +656,22 @@ select:focus-visible {
   touch-action: none; /* Pointer Events でドラッグするため既定ジェスチャを無効化 */
 }
 
-.sidebar-resizer:hover,
-.sidebar-resizer.dragging {
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 100%;
   background: var(--accent);
-  opacity: 0.4;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.sidebar-resizer:hover::after,
+.sidebar-resizer.dragging::after {
+  opacity: 0.6;
 }
 
 .sidebar-section {
