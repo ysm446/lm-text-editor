@@ -6,6 +6,7 @@ import LibrarySwitcher from './LibrarySwitcher'
 import WebSearchPanel from './panels/WebSearchPanel'
 import StatusBar from './StatusBar'
 import SettingsModal from './settings/SettingsModal'
+import { ChartIcon, GearIcon, SearchIcon } from './icons'
 import {
   api,
   type AppSettings,
@@ -287,7 +288,7 @@ export default function App() {
           onClick={() => setWebSearchOpen(true)}
           title="Web 検索して資料を取り込む（原文チャンク + 要約ノート）"
         >
-          🔍 Web 検索
+          <SearchIcon /> Web 検索
         </button>
         <ModelBar />
         <button
@@ -295,14 +296,14 @@ export default function App() {
           onClick={toggleStatusBar}
           title={statusBarVisible ? 'リソースモニターを隠す' : 'リソースモニターを表示'}
         >
-          📊
+          <ChartIcon />
         </button>
         <button
           className="statusbar-toggle"
           onClick={() => void openSettings()}
           title="設定"
         >
-          ⚙️
+          <GearIcon />
         </button>
       </div>
       {settingsOpen && settings && (

@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { AppSettings } from '../api/client'
+import { PencilIcon, SearchIcon, SunIcon } from '../icons'
 
 type Category = 'appearance' | 'editor' | 'websearch'
 
-const CATEGORIES: { key: Category; label: string; icon: string }[] = [
-  { key: 'appearance', label: '外観', icon: '🎨' },
-  { key: 'editor', label: 'エディタ', icon: '✏️' },
-  { key: 'websearch', label: 'Web 検索', icon: '🔍' },
+const CATEGORIES: { key: Category; label: string; icon: ReactNode }[] = [
+  { key: 'appearance', label: '外観', icon: <SunIcon /> },
+  { key: 'editor', label: 'エディタ', icon: <PencilIcon size={14} /> },
+  { key: 'websearch', label: 'Web 検索', icon: <SearchIcon /> },
 ]
 
 // テーマのパターンを増やす場合はここに追加（styles.css の [data-theme='…'] と対応）

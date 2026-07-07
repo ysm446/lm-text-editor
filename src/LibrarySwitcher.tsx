@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type LibraryState } from './api/client'
+import { BookIcon, ChevronDownIcon } from './icons'
 
 interface LibrarySwitcherProps {
   onSwitched: () => void // 切替後に App 側で全状態をリロードする
@@ -84,7 +85,8 @@ export default function LibrarySwitcher({ onSwitched }: LibrarySwitcherProps) {
         disabled={busy}
         title={active?.path ?? 'ライブラリ'}
       >
-        📚 {busy ? '切り替え中…' : (active?.name ?? 'ライブラリ')} ▾
+        <BookIcon /> {busy ? '切り替え中…' : (active?.name ?? 'ライブラリ')}{' '}
+        <ChevronDownIcon />
       </button>
       {error && <span className="library-switcher-error">{error}</span>}
       {menuOpen && (

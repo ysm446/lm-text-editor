@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useState } from 'react'
 import type { Editor as TipTapEditor } from '@tiptap/react'
+import { LinkIcon } from '../../icons'
 
 interface FormatToolbarProps {
   editor: TipTapEditor | null
@@ -190,7 +191,7 @@ export default function FormatToolbar({ editor }: FormatToolbarProps) {
         onMouseDown={(e) => e.preventDefault()}
         onClick={toggleLink}
       >
-        🔗
+        <LinkIcon />
       </button>
       {linkOpen && (
         <input

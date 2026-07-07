@@ -1642,3 +1642,17 @@ body {
 .image-thumb-wrap:hover .image-thumb-delete {
   display: flex;
 }
+
+/* フラットアイコン: ボタン内で文字と揃える */
+.library-switcher-btn,
+.web-search-toggle,
+.statusbar-toggle,
+.settings-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.format-btn svg {
+  vertical-align: -2px;
+}
