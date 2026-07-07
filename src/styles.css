@@ -2216,13 +2216,13 @@ select:focus-visible {
   text-align: left;
 }
 
-/* セル内の段落マージンを打ち消す（上下の余分な余白＝上パディングに見える問題を解消） */
-.tiptap-root .ProseMirror td > *:first-child,
-.tiptap-root .ProseMirror th > *:first-child {
+/* セル内ブロックのマージンを一律 0 にする。
+   ホバー時に各セル末尾へ挿入される列リサイズハンドル（widget div）が :last-child を
+   奪うと、段落が :last-child でなくなって下マージンが復活し、セルが縦に伸びて見える。
+   構造依存（:first-child/:last-child）をやめて位置に依存せず消すことで防ぐ。 */
+.tiptap-root .ProseMirror td > *,
+.tiptap-root .ProseMirror th > * {
   margin-top: 0;
-}
-.tiptap-root .ProseMirror td > *:last-child,
-.tiptap-root .ProseMirror th > *:last-child {
   margin-bottom: 0;
 }
 
