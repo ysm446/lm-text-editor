@@ -55,6 +55,16 @@ export function GearIcon({ size = 15 }: IconProps) {
   )
 }
 
+export function CpuIcon({ size = 15 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <rect x="9" y="9" width="6" height="6" />
+      <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+    </svg>
+  )
+}
+
 export function LinkIcon({ size = 14 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

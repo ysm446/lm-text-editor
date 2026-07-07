@@ -452,11 +452,8 @@ select:focus-visible {
   outline: none;
 }
 
-/* バー内ボタン: chip スタイルに統一 */
-.library-switcher-btn,
-.web-search-toggle,
-.model-bar-controls button,
-.model-bar-controls select {
+/* バー内ボタン: chip スタイル（ライブラリスイッチャー） */
+.library-switcher-btn {
   border: 1px solid transparent;
   background: var(--bar-surface);
   color: var(--bar-text);
@@ -468,15 +465,8 @@ select:focus-visible {
   transition: background 0.12s ease;
 }
 
-.library-switcher-btn:hover:not(:disabled),
-.web-search-toggle:hover,
-.model-bar-controls button:hover:not(:disabled) {
+.library-switcher-btn:hover:not(:disabled) {
   background: var(--bar-hover);
-}
-
-.model-bar-controls button:disabled {
-  color: var(--bar-faint);
-  cursor: default;
 }
 
 /* ライブラリスイッチャー */
@@ -535,75 +525,243 @@ select:focus-visible {
 }
 
 /* モデルバー: 上部中央の丸みのある帯（LM Studio 風） */
-.model-bar {
+/* モデルピル: 上部中央の状態ボタン（クリックでモーダル）。LM Studio / VCA 風。
+   ロード済み=アクセント塗り / 未ロード=グレー / ロード中=アクセントのシマー */
+.model-pill {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 3px 6px 3px 12px;
-  color: var(--bar-text);
+  gap: 10px;
+  height: 30px;
+  width: min(440px, 40vw);
   min-width: 0;
-  width: min(480px, 42vw);
-  background: var(--bar-surface);
-  border: 1px solid var(--bar-border);
+  padding: 0 12px;
+  border: 1px solid transparent;
   border-radius: var(--radius-m);
-  transition: background 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: filter 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-/* ロード中はバーをアクセント色に染めて状態を示す */
-.model-bar.loading {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 32%, var(--bar-surface));
-}
-
-.model-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--bar-faint);
+.model-pill-icon,
+.model-pill-caret {
+  display: inline-flex;
   flex-shrink: 0;
+  opacity: 0.9;
 }
 
-.model-dot.ready {
-  background: var(--bar-ok);
-}
-
-.model-dot.loading {
-  background: var(--bar-warn);
-  animation: blink 1.2s step-start infinite;
-}
-
-.model-bar-status {
+.model-pill-text {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.model-bar-controls {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* ロード済み: キーカラー（アクセント紫）で塗る */
+.model-pill.on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.model-pill.on:hover {
+  filter: brightness(1.08);
+}
+
+/* 未ロード: 落ち着いたグレー */
+.model-pill.off {
+  background: var(--bar-surface);
+  color: var(--bar-muted);
+}
+
+.model-pill.off:hover {
+  background: var(--bar-hover);
+  color: var(--bar-text);
+}
+
+/* ロード中: アクセントのシマー */
+.model-pill.loading {
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--accent) 55%, var(--bar-surface)) 25%,
+    var(--accent) 50%,
+    color-mix(in srgb, var(--accent) 55%, var(--bar-surface)) 75%
+  );
+  background-size: 200% 100%;
+  color: var(--accent-text);
+  animation: pill-shimmer 1.4s linear infinite;
+}
+
+@keyframes pill-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 .model-bar-error {
   color: var(--bar-danger);
-  max-width: 380px;
+  font-size: var(--fs-sm);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* モデル選択モーダル */
+.model-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay);
+}
+
+.model-modal-panel {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-2);
+  width: min(460px, calc(100vw - 64px));
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.model-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.model-modal-close {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  padding: 4px 6px;
+}
+
+.model-modal-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.model-modal-body {
+  padding: 12px 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modal-model-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-m);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.modal-model-item:hover {
+  background: var(--hover);
+}
+
+.modal-model-item.selected {
+  background: var(--selected);
+  border-color: var(--accent-border);
+}
+
+.modal-model-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-model-name {
+  font-size: var(--fs-ui);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.model-bar-controls select {
-  max-width: 260px;
-  padding: 3px 8px;
-  border-color: var(--bar-border);
+.modal-model-meta {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.modal-model-active {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  color: var(--ok);
+}
+
+.modal-footer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.modal-status-text {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.modal-footer-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.modal-footer-actions button {
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--fs-ui);
+}
+
+.modal-footer-actions button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.modal-footer-actions button.primary:not(:disabled) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.modal-footer-actions button:disabled {
+  color: var(--faint);
   cursor: default;
-}
-
-/* ピル内のコントロールは帯（bar-surface）と沈んだ地（bar-bg）で差をつける */
-.model-bar-controls button,
-.model-bar-controls select {
-  background: var(--bar-bg);
 }
 
 /* ============================================================
@@ -2279,7 +2437,6 @@ select:focus-visible {
 
 /* フラットアイコン: ボタン内で文字と揃える */
 .library-switcher-btn,
-.web-search-toggle,
 .statusbar-toggle,
 .settings-nav button {
   display: inline-flex;
