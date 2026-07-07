@@ -77,6 +77,11 @@ export interface RagSource {
   fetched_at: string | null
 }
 
+export interface SourceDetail {
+  chunks: { id: number; chunk_text: string; fetched_at: string | null }[]
+  notes: { id: number; summary: string; fetched_at: string | null }[]
+}
+
 export interface WorkspaceImage {
   id: number
   document_id: number
@@ -286,6 +291,20 @@ export const api = {
     request<{ ok: boolean; chunk_ids: number[] }>('/rag/ingest', {
       method: 'POST',
       body: JSON.stringify(body),
+    }),
+
+  getRagSourceDetail: (
+    workspaceId: number,
+    sourceType: string,
+    sourceUrl: string | null,
+  ) =>
+    request<SourceDetail>('/rag/sources/detail', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        source_type: sourceType,
+        source_url: sourceUrl,
+      }),
     }),
 
   deleteRagSource: (

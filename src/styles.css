@@ -1691,3 +1691,92 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* 資料ビューア */
+.source-viewer {
+  background: var(--surface);
+  border-radius: 12px;
+  width: min(820px, calc(100vw - 64px));
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.source-viewer-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--panel-accent-bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+.source-viewer-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-viewer-title a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+.source-viewer-title a:hover {
+  text-decoration: underline;
+}
+
+.source-viewer-header button {
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.source-viewer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+}
+
+.source-viewer-body h3 {
+  font-size: 0.8em;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 14px 0 6px;
+}
+
+.source-viewer-note {
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  padding: 2px 14px 10px;
+  background: var(--panel-accent-bg);
+  margin-bottom: 6px;
+}
+
+.source-viewer-chunk {
+  border: 1px solid var(--hover);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-bottom: 8px;
+}
+
+.source-viewer-chunk-label {
+  font-size: 0.75em;
+  color: var(--faint);
+  margin-bottom: 4px;
+}
+
+.source-viewer-text {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  font-size: 0.92em;
+}

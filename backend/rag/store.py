@@ -187,6 +187,38 @@ def list_sources(workspace_id: int) -> list[dict[str, Any]]:
     ]
 
 
+def get_source_detail(
+    workspace_id: int, source_type: str, source_url: str | None
+) -> dict[str, Any]:
+    """ソース単位の原文チャンク（順序どおり）と要約ノートを返す（閲覧用）。"""
+    with connect() as conn:
+        if source_url is None:
+            cond = "workspace_id = ? AND source_type = ? AND source_url IS NULL"
+            params: tuple[Any, ...] = (workspace_id, source_type)
+        else:
+            cond = "workspace_id = ? AND source_type = ? AND source_url = ?"
+            params = (workspace_id, source_type, source_url)
+        chunks = [
+            dict(r)
+            for r in conn.execute(
+                f"SELECT id, chunk_text, fetched_at FROM rag_chunk WHERE {cond}"
+                " ORDER BY id",
+                params,
+            )
+        ]
+        notes: list[dict[str, Any]] = []
+        if source_url is not None:
+            notes = [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT id, summary, fetched_at FROM source_note"
+                    " WHERE workspace_id = ? AND source_url = ? ORDER BY id",
+                    (workspace_id, source_url),
+                )
+            ]
+    return {"chunks": chunks, "notes": notes}
+
+
 def delete_source(
     workspace_id: int, source_type: str, source_url: str | None
 ) -> int:

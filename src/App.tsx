@@ -4,6 +4,7 @@ import Editor from './editor/Editor'
 import ModelBar from './ModelBar'
 import LibrarySwitcher from './LibrarySwitcher'
 import WebSearchPanel from './panels/WebSearchPanel'
+import SourceViewer from './panels/SourceViewer'
 import StatusBar from './StatusBar'
 import SettingsModal from './settings/SettingsModal'
 import { ChartIcon, GearIcon, SearchIcon } from './icons'
@@ -37,6 +38,7 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [sources, setSources] = useState<RagSource[]>([])
+  const [viewingSource, setViewingSource] = useState<RagSource | null>(null)
   const [images, setImages] = useState<WorkspaceImage[]>([])
   const imageInserter = useRef<((url: string) => void) | null>(null)
 
@@ -306,6 +308,13 @@ export default function App() {
           <GearIcon />
         </button>
       </div>
+      {viewingSource && currentWsId != null && (
+        <SourceViewer
+          workspaceId={currentWsId}
+          source={viewingSource}
+          onClose={() => setViewingSource(null)}
+        />
+      )}
       {settingsOpen && settings && (
         <SettingsModal
           settings={settings}
@@ -339,6 +348,7 @@ export default function App() {
         onRenameDoc={(id, title) => void renameDoc(id, title)}
         onDeleteDoc={(id) => void deleteDoc(id)}
         onAddSourceFiles={(files) => void addSourceFiles(files)}
+        onViewSource={setViewingSource}
         onDeleteSource={(s) => void deleteSource(s)}
         onInsertImage={insertImage}
         onDeleteImage={(img) => void deleteImage(img)}

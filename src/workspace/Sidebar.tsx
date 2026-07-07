@@ -172,6 +172,7 @@ interface SidebarProps {
   onRenameDoc: (id: number, title: string) => void
   onDeleteDoc: (id: number) => void
   onAddSourceFiles: (files: FileList) => void
+  onViewSource: (source: RagSource) => void
   onDeleteSource: (source: RagSource) => void
   onInsertImage: (image: WorkspaceImage) => void
   onDeleteImage: (image: WorkspaceImage) => void
@@ -193,6 +194,7 @@ export default function Sidebar({
   onRenameDoc,
   onDeleteDoc,
   onAddSourceFiles,
+  onViewSource,
   onDeleteSource,
   onInsertImage,
   onDeleteImage,
@@ -228,16 +230,17 @@ export default function Sidebar({
         <ul>
           {sources.map((s) => (
             <li key={`${s.source_type}:${s.source_url ?? ''}`} className="item-row">
-              <span
+              <button
                 className="source-item"
-                title={`${s.source_url ?? s.source_type}\n${s.chunk_count} チャンク${s.note_count > 0 ? ' + 要約ノート' : ''}`}
+                title={`${s.source_url ?? s.source_type}\n${s.chunk_count} チャンク${s.note_count > 0 ? ' + 要約ノート' : ''}\nクリックで内容を表示`}
+                onClick={() => onViewSource(s)}
               >
                 <span className={`source-badge type-${s.source_type}`}>
                   {s.source_type === 'web' ? 'W' : s.source_type === 'article' ? 'A' : 'R'}
                 </span>
                 <span className="source-name">{sourceLabel(s)}</span>
                 <span className="source-count">{s.chunk_count}</span>
-              </span>
+              </button>
               <button
                 className="item-menu-btn"
                 title="この資料を削除"

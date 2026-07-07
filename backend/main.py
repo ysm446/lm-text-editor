@@ -452,6 +452,14 @@ def list_rag_sources(workspace_id: int) -> list[dict[str, Any]]:
     return rag_store.list_sources(workspace_id)
 
 
+@app.post("/rag/sources/detail")
+def rag_source_detail(body: RagSourceDeleteRequest) -> dict[str, Any]:
+    """資料ビューア用: ソースの原文チャンクと要約ノートを返す。"""
+    return rag_store.get_source_detail(
+        body.workspace_id, body.source_type, body.source_url
+    )
+
+
 @app.post("/rag/sources/delete")
 def delete_rag_source(body: RagSourceDeleteRequest) -> dict[str, Any]:
     deleted = rag_store.delete_source(
