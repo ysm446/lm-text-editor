@@ -1,6 +1,6 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useState, type ReactNode } from 'react'
 import type { Editor as TipTapEditor } from '@tiptap/react'
-import { LinkIcon } from '../../icons'
+import { LinkIcon, TableIcon } from '../../icons'
 
 interface FormatToolbarProps {
   editor: TipTapEditor | null
@@ -8,7 +8,7 @@ interface FormatToolbarProps {
 
 interface ButtonSpec {
   key: string
-  label: string
+  label: ReactNode
   title: string
   isActive: (ed: TipTapEditor) => boolean
   run: (ed: TipTapEditor) => void
@@ -112,6 +112,14 @@ const BUTTONS: (ButtonSpec | 'sep')[] = [
     title: '水平線',
     isActive: () => false,
     run: (ed) => ed.chain().focus().setHorizontalRule().run(),
+  },
+  {
+    key: 'table',
+    label: <TableIcon />,
+    title: '表を挿入（3×3・ヘッダ行あり）',
+    isActive: (ed) => ed.isActive('table'),
+    run: (ed) =>
+      ed.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
   },
   'sep',
   {

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, type Editor as TipTapEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
+import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table'
 import { Markdown } from 'tiptap-markdown'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { api, streamText } from '../api/client'
@@ -15,6 +16,7 @@ import SplitReview, {
 import RevisionPanel from '../review/RevisionPanel'
 import AssistPanel, { type AssistState } from '../panels/AssistPanel'
 import FormatToolbar from './toolbar/FormatToolbar'
+import TableToolbar from './toolbar/TableToolbar'
 import ToolPalette from './ToolPalette'
 
 const DRAFT_DEBOUNCE_MS = 1500
@@ -232,6 +234,12 @@ export default function Editor({
     extensions: [
       StarterKit,
       Image,
+      // GFM テーブル: tiptap-markdown が simple table（ヘッダ行あり・1セル1段落・結合なし）を
+      // `| ... |` に往復変換する。結合・複数段落セルは Markdown 化できず HTML 化 → html:false のため書き出しで落ちる。
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Markdown.configure({
         html: false,
         transformPastedText: true,
@@ -510,6 +518,7 @@ export default function Editor({
       {/* 書式ツール（太字・見出し・リスト等）は本文に付随する浮いたバー（ドラッグで移動可・位置は記憶） */}
       <ToolPalette title="書式">
         <FormatToolbar editor={editor} />
+        <TableToolbar editor={editor} />
       </ToolPalette>
       {/* スクロールしても操作ツールバーは上部に固定表示する */}
       <div className="editor-toolbars">

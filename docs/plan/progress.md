@@ -1,7 +1,7 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 10:30
+更新日時: 2026-07-08 13:00
 
 ## 現在の状態
 
@@ -88,6 +88,13 @@
 
 - 2026-07-07 書式ツールバー（太字〜リンク、undo/redo。StarterKit v3 の Link / Underline を活用）。
 
+- 2026-07-08 表（テーブル）機能:
+  - `@tiptap/extension-table`（v3.27.2、単一パッケージで Table/TableRow/TableHeader/TableCell）を導入。`Table.configure({ resizable: true })`。
+  - 書式バー（FormatToolbar）に「表」挿入ボタン（3×3・ヘッダ行あり）。表内カーソル時のみ書式パレット下段に文脈ツールバー（`TableToolbar.tsx`: 行/列の追加・削除、mergeOrSplit、toggleHeaderRow、deleteTable）。
+  - GFM 相互変換: 読み込み・貼り付けは markdown-it（GFM 既定 ON）→ HTML → TipTap parseHTML。書き出しは tiptap-markdown 組み込みの table シリアライザ（v3 の native `renderMarkdown` は `storage.markdown` を持たないため tiptap-markdown 側にフォールバック）。simple table（ヘッダ行・1セル1段落・結合なし）のみ `| … |` 化、それ以外は HTML 化 → `html:false` で書き出し時に落ちる。
+  - collectBlocks はトップレベルの textblock のみ対象なので、表は校正の対象外（セル内段落も非トップレベルで触られない）。
+  - 検証: `npm run build`（tsc 型検査 + バンドル）通過。tiptap-markdown のシリアライザ解決経路を静的に確認。実アプリでの表示確認は未実施（Electron 起動はユーザーの backend/LLM を巻き込むため。`npm run dev` で目視予定）。
+
 - 2026-07-07 フェーズ 4 Web 検索:
   - manager を 2 スロット化（gemma :8080 / ornith :8081）。モデルバーに「検索LLM」の起動/停止を追加。
   - 検索: ddgs（キー不要）既定、TAVILY_API_KEY 設定時は Tavily 優先。ornith がクエリ分解（enable_thinking=false で高速化。news-picker の知見）。
@@ -114,7 +121,7 @@
 - UI の手動確認: 執筆・保存・画像ペースト・インライン校正・執筆支援（RAG トグル含む）・分割ビュー校正の一連操作。
 - 過去記事アーカイブ・リファレンスの実データ投入（`ingest_dir` CLI で。アーカイブの場所をユーザーに確認）。
 - フェーズ 4: Web 検索（ornith 9B :8081、`<think>` パーサ、Tavily、trafilatura、二層保存）。
-- 表（テーブル）ツール（2026-07-07 追加。plan.md「エディタ書式」参照）。
+- 表（テーブル）機能の実アプリ目視確認（挿入・行列操作・列幅リサイズ・GFM 書き出し/読み込みの往復）。
 - 内容を踏まえた校正への発展（2026-07-07 追加。plan.md「発展構想」参照。用語統一・論理チェック・RAG 突き合わせ・指摘型レビュー）。
 - フェーズ 7（2026-07-07 追加）: 右パネル型の支援レイアウト（左=本文 / 右=執筆支援・アドバイス・ソース・チャットのタブ）と、LLM とチャットしながら執筆を進める機能。plan.md フェーズ 7 参照。
 - 既知の制限: 分割ビュー校正はリスト内・引用内の段落を対象にしない（トップレベルのみ）。左ペインは読み取り専用（spec は編集可能を想定）。必要になったら拡張。

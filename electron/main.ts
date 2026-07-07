@@ -160,7 +160,13 @@ async function shutdownBackendAndQuit() {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    void shutdownBackendAndQuit()
+    // 検証・開発時: LM_KEEP_BACKEND=1 なら別途起動済みの backend/LLM を残したまま自分だけ終了する。
+    // 通常利用（未設定）は従来どおり backend と追跡中の llama-server も後片付けする。
+    if (process.env.LM_KEEP_BACKEND === '1') {
+      app.quit()
+    } else {
+      void shutdownBackendAndQuit()
+    }
   }
 })
 

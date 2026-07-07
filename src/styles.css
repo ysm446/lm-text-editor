@@ -2006,6 +2006,79 @@ select:focus-visible {
   margin: 24px 0;
 }
 
+/* --- テーブル（GFM） --- */
+.tiptap-root .ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 16px 0;
+  overflow: hidden;
+}
+
+.tiptap-root .ProseMirror td,
+.tiptap-root .ProseMirror th {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+  min-width: 3em;
+}
+
+.tiptap-root .ProseMirror th {
+  background: var(--hover);
+  font-weight: 600;
+  text-align: left;
+}
+
+.tiptap-root .ProseMirror td > *:last-child,
+.tiptap-root .ProseMirror th > *:last-child {
+  margin-bottom: 0;
+}
+
+/* 選択中のセル */
+.tiptap-root .ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--selected);
+  pointer-events: none;
+}
+
+/* 列幅リサイズハンドル */
+.tiptap-root .ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.tiptap-root .ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* --- 表の文脈ツールバー（書式パレット下段） --- */
+.table-toolbar {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.table-toolbar-label {
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  padding: 0 4px;
+  align-self: center;
+}
+
+.format-btn.table-toolbar-danger:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
 /* ============================================================
    Web 検索
    ============================================================ */
