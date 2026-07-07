@@ -2226,6 +2226,11 @@ select:focus-visible {
   text-align: left;
 }
 
+/* セル内の段落マージンを打ち消す（上下の余分な余白＝上パディングに見える問題を解消） */
+.tiptap-root .ProseMirror td > *:first-child,
+.tiptap-root .ProseMirror th > *:first-child {
+  margin-top: 0;
+}
 .tiptap-root .ProseMirror td > *:last-child,
 .tiptap-root .ProseMirror th > *:last-child {
   margin-bottom: 0;
