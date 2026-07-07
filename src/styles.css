@@ -1656,3 +1656,38 @@ body {
 .format-btn svg {
   vertical-align: -2px;
 }
+
+/* ワークスペースツリー */
+.ws-caret {
+  display: inline-block;
+  width: 14px;
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+.ws-children {
+  list-style: none;
+  margin: 2px 0 8px 10px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.ws-children .sub-section {
+  margin-bottom: 10px;
+}
+
+.ws-children .sub-section h3 {
+  margin: 0 0 2px;
+  padding: 0 4px;
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+}
+
+.ws-children ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
