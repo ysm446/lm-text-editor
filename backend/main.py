@@ -37,8 +37,9 @@ from backend.websearch import search as web_search
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     models.init_db()
     rag_store.init_rag_schema()
-    # 埋め込みモデルのロードは重いのでバックグラウンドで温める
-    threading.Thread(target=rag_embed.warmup, daemon=True).start()
+    # 埋め込みモデル（Ruri）は起動時に先読みしない。torch/transformers の import が
+    # 重く、起動直後に backend がもたつくため。初回の RAG 検索・取り込み時に
+    # rag_embed._ensure_loaded() が遅延ロードする（エディタ利用を優先）。
     yield
 
 
