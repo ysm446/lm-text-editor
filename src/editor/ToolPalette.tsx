@@ -17,6 +17,7 @@ interface Pos {
  */
 export default function ToolPalette({ title, children }: { title: string; children: ReactNode }) {
   const anchorRef = useRef<HTMLDivElement | null>(null)
+  const paletteRef = useRef<HTMLDivElement | null>(null)
   const [pos, setPos] = useState<Pos | null>(() => {
     try {
       const raw = localStorage.getItem(POS_KEY)
@@ -34,9 +35,13 @@ export default function ToolPalette({ title, children }: { title: string; childr
     const w = anchor?.clientWidth ?? window.innerWidth
     const stage = anchor?.closest('.doc-stage')
     const h = stage instanceof HTMLElement ? stage.clientHeight : window.innerHeight
+    // パレットの実寸で右端・下端が収まるようにクランプ（幅が足りなければ x=0 のまま右へはみ出す＝許容）
+    const palette = paletteRef.current
+    const pw = palette?.offsetWidth ?? DEFAULT_WIDTH
+    const ph = palette?.offsetHeight ?? 48
     return {
-      x: Math.min(Math.max(0, p.x), Math.max(0, w - 80)),
-      y: Math.min(Math.max(4, p.y), Math.max(4, h - 60)),
+      x: Math.min(Math.max(0, p.x), Math.max(0, w - pw)),
+      y: Math.min(Math.max(4, p.y), Math.max(4, h - ph - 4)),
     }
   }
 
@@ -49,12 +54,20 @@ export default function ToolPalette({ title, children }: { title: string; childr
         ? clampToStage(p)
         : clampToStage({ x: Math.round((anchor.clientWidth - DEFAULT_WIDTH) / 2), y: 56 }),
     )
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => {
-      setPos((p) => (p !== null ? clampToStage(p) : p))
-    })
-    ro.observe(anchor)
-    return () => ro.disconnect()
+    const reclamp = () => setPos((p) => (p !== null ? clampToStage(p) : p))
+    // ウィンドウ高さのみの変更は ResizeObserver が拾わないので resize も監視する
+    window.addEventListener('resize', reclamp)
+    let ro: ResizeObserver | undefined
+    if (typeof ResizeObserver !== 'undefined') {
+      // アンカー幅（ペイン開閉・横幅）とパレット自身のサイズ変化の両方で収め直す
+      ro = new ResizeObserver(reclamp)
+      ro.observe(anchor)
+      if (paletteRef.current) ro.observe(paletteRef.current)
+    }
+    return () => {
+      window.removeEventListener('resize', reclamp)
+      ro?.disconnect()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -87,6 +100,7 @@ export default function ToolPalette({ title, children }: { title: string; childr
     <div className="tool-palette-anchor" ref={anchorRef}>
       <div
         className="tool-palette"
+        ref={paletteRef}
         style={{ left: pos?.x ?? 0, top: pos?.y ?? 0, visibility: pos ? 'visible' : 'hidden' }}
       >
         <div
