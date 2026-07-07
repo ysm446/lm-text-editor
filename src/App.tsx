@@ -264,10 +264,32 @@ export default function App() {
     [currentWsId, refreshWorkspaceAssets],
   )
 
-  // 画像: カーソル位置に挿入 / 削除
+  // 画像: カーソル位置に挿入 / ファイル追加 / 削除
   const insertImage = useCallback((image: WorkspaceImage) => {
     imageInserter.current?.(image.url)
   }, [])
+
+  const addImageFiles = useCallback(
+    async (files: FileList) => {
+      if (!currentDoc) return
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(file)
+        })
+        await api.uploadAsset({
+          document_id: currentDoc.id,
+          filename: file.name || 'image.png',
+          data_base64: base64,
+        })
+      }
+      void refreshWorkspaceAssets(currentWsId)
+    },
+    [currentDoc, currentWsId, refreshWorkspaceAssets],
+  )
 
   const deleteImage = useCallback(
     async (image: WorkspaceImage) => {
@@ -363,6 +385,8 @@ export default function App() {
         onAddSourceFiles={(files) => void addSourceFiles(files)}
         onViewSource={setViewingSource}
         onDeleteSource={(s) => void deleteSource(s)}
+        canAddImages={currentDoc != null}
+        onAddImageFiles={(files) => void addImageFiles(files)}
         onViewImage={setViewingImage}
         onDeleteImage={(img) => void deleteImage(img)}
       />

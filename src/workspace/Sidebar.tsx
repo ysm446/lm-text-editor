@@ -16,32 +16,22 @@ function sourceLabel(s: RagSource): string {
   }
 }
 
-interface InlineCreateProps {
+interface NameInputProps {
   placeholder: string
-  onCreate: (name: string) => void
+  onSubmit: (name: string) => void
+  onClose: () => void
 }
 
 // Electron では window.prompt が使えないため、インラインの入力欄で作成する
-function InlineCreate({ placeholder, onCreate }: InlineCreateProps) {
-  const [open, setOpen] = useState(false)
+function NameInput({ placeholder, onSubmit, onClose }: NameInputProps) {
   const [value, setValue] = useState('')
 
   const submit = () => {
     const name = value.trim()
-    if (name) {
-      onCreate(name)
-    }
-    setValue('')
-    setOpen(false)
+    if (name) onSubmit(name)
+    onClose()
   }
 
-  if (!open) {
-    return (
-      <button className="inline-create-toggle" onClick={() => setOpen(true)}>
-        ＋ {placeholder}
-      </button>
-    )
-  }
   return (
     <input
       className="inline-create-input"
@@ -51,13 +41,36 @@ function InlineCreate({ placeholder, onCreate }: InlineCreateProps) {
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') submit()
-        if (e.key === 'Escape') {
-          setValue('')
-          setOpen(false)
-        }
+        if (e.key === 'Escape') onClose()
       }}
       onBlur={submit}
     />
+  )
+}
+
+interface SectionHeadProps {
+  label: string
+  level: 2 | 3
+  addTitle: string
+  addDisabled?: boolean
+  onAdd: () => void
+}
+
+// セクション見出し + 右端の「＋」追加ボタン
+function SectionHead({ label, level, addTitle, addDisabled, onAdd }: SectionHeadProps) {
+  const Tag = level === 2 ? 'h2' : 'h3'
+  return (
+    <Tag className="section-head">
+      <span>{label}</span>
+      <button
+        className="section-add"
+        title={addTitle}
+        disabled={addDisabled}
+        onClick={onAdd}
+      >
+        ＋
+      </button>
+    </Tag>
   )
 }
 
@@ -174,6 +187,8 @@ interface SidebarProps {
   onAddSourceFiles: (files: FileList) => void
   onViewSource: (source: RagSource) => void
   onDeleteSource: (source: RagSource) => void
+  canAddImages: boolean // 画像はドキュメントに紐づくため、ドキュメントを開いているときのみ
+  onAddImageFiles: (files: FileList) => void
   onViewImage: (image: WorkspaceImage) => void
   onDeleteImage: (image: WorkspaceImage) => void
 }
@@ -196,10 +211,14 @@ export default function Sidebar({
   onAddSourceFiles,
   onViewSource,
   onDeleteSource,
+  canAddImages,
+  onAddImageFiles,
   onViewImage,
   onDeleteImage,
 }: SidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [creating, setCreating] = useState<'workspace' | 'doc' | null>(null)
   // 選択とは別に開閉状態を持つ（選択中でも折りたためる）。選択が変わったら自動で開く
   const [expandedId, setExpandedId] = useState<number | null>(currentWorkspaceId)
   useEffect(() => {
@@ -209,7 +228,19 @@ export default function Sidebar({
   const renderChildren = () => (
     <li className="ws-children">
       <div className="sub-section">
-        <h3>ドキュメント</h3>
+        <SectionHead
+          label="ドキュメント"
+          level={3}
+          addTitle="新規ドキュメント"
+          onAdd={() => setCreating('doc')}
+        />
+        {creating === 'doc' && (
+          <NameInput
+            placeholder="新規ドキュメント名"
+            onSubmit={onCreateDoc}
+            onClose={() => setCreating(null)}
+          />
+        )}
         <ul>
           {docs.map((doc) => (
             <ItemRow
@@ -222,11 +253,15 @@ export default function Sidebar({
             />
           ))}
         </ul>
-        <InlineCreate placeholder="新規ドキュメント" onCreate={onCreateDoc} />
       </div>
 
       <div className="sub-section">
-        <h3>資料（RAG）</h3>
+        <SectionHead
+          label="資料（RAG）"
+          level={3}
+          addTitle="テキスト / Markdown ファイルを追加"
+          onAdd={() => fileInputRef.current?.click()}
+        />
         <ul>
           {sources.map((s) => (
             <li key={`${s.source_type}:${s.source_url ?? ''}`} className="item-row">
@@ -251,12 +286,6 @@ export default function Sidebar({
             </li>
           ))}
         </ul>
-        <button
-          className="inline-create-toggle"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          ＋ ファイルを追加（.md / .txt）
-        </button>
         <input
           ref={fileInputRef}
           type="file"
@@ -270,9 +299,30 @@ export default function Sidebar({
         />
       </div>
 
-      {images.length > 0 && (
-        <div className="sub-section">
-          <h3>画像</h3>
+      <div className="sub-section">
+        <SectionHead
+          label="画像"
+          level={3}
+          addTitle={
+            canAddImages
+              ? '画像ファイルを追加（開いているドキュメントに登録）'
+              : 'ドキュメントを開くと画像を追加できます'
+          }
+          addDisabled={!canAddImages}
+          onAdd={() => imageInputRef.current?.click()}
+        />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            if (e.target.files?.length) onAddImageFiles(e.target.files)
+            e.target.value = ''
+          }}
+        />
+        {images.length > 0 && (
           <div className="image-grid">
             {images.map((img) => (
               <div key={img.id} className="image-thumb-wrap">
@@ -292,15 +342,27 @@ export default function Sidebar({
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </li>
   )
 
   return (
     <aside className="sidebar">
       <section className="sidebar-section">
-        <h2>ワークスペース</h2>
+        <SectionHead
+          label="ワークスペース"
+          level={2}
+          addTitle="新規ワークスペース"
+          onAdd={() => setCreating('workspace')}
+        />
+        {creating === 'workspace' && (
+          <NameInput
+            placeholder="新規ワークスペース名"
+            onSubmit={onCreateWorkspace}
+            onClose={() => setCreating(null)}
+          />
+        )}
         <ul>
           {workspaces.map((ws) => {
             const isCurrent = ws.id === currentWorkspaceId
@@ -327,7 +389,6 @@ export default function Sidebar({
             )
           })}
         </ul>
-        <InlineCreate placeholder="新規ワークスペース" onCreate={onCreateWorkspace} />
       </section>
     </aside>
   )

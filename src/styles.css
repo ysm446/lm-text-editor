@@ -1859,3 +1859,34 @@ body {
   font-size: 0.95em;
   white-space: nowrap;
 }
+
+/* セクション見出しの＋ボタン */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-add {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  font-size: 0.95em;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.section-add:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.section-add:disabled {
+  color: var(--faint);
+  cursor: default;
+}
