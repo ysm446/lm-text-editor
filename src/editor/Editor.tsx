@@ -557,6 +557,17 @@ export default function Editor({
           {saving ? '保存中…' : '保存'}
         </button>
       </div>
+      {/* 校正結果は sticky ラッパー内に置き、スクロール位置に関係なくツールバー直下に見せる */}
+      {review && (
+        <InlineDiff
+          original={review.original}
+          revised={review.revised}
+          status={review.status}
+          error={review.error}
+          onAccept={acceptReview}
+          onReject={() => setReview(null)}
+        />
+      )}
       </div>
       {draftBanner && (
         <div className="draft-banner">
@@ -608,16 +619,6 @@ export default function Editor({
           />,
           assistPaneEl,
         )}
-      {review && (
-        <InlineDiff
-          original={review.original}
-          revised={review.revised}
-          status={review.status}
-          error={review.error}
-          onAccept={acceptReview}
-          onReject={() => setReview(null)}
-        />
-      )}
       <EditorContent editor={editor} className="tiptap-root" />
     </div>
   )

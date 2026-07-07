@@ -2007,3 +2007,8 @@ body {
   padding-top: 6px;
   box-shadow: 0 6px 8px -8px var(--shadow-color);
 }
+
+/* 校正結果はツールバー直下に固定表示（本文スクロールに追従しない） */
+.editor-toolbars .inline-diff {
+  margin: 0 4px 10px;
+}
