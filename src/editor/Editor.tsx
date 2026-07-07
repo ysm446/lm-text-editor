@@ -6,6 +6,7 @@ import { Markdown } from 'tiptap-markdown'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { api, streamText } from '../api/client'
 import InlineDiff from '../review/InlineDiff'
+import { showToast } from '../Toast'
 import SplitReview, {
   type SplitReviewState,
   type SplitRow,
@@ -155,6 +156,7 @@ export default function Editor({
       wasDirty.current = false
       setDirty(false)
       setDraftBanner(false)
+      showToast('保存しました')
       onSaved(docId)
     } catch (e) {
       setSaveError(String(e instanceof Error ? e.message : e))

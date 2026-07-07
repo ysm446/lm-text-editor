@@ -6,6 +6,7 @@ import LibrarySwitcher from './LibrarySwitcher'
 import WebSearchPanel from './panels/WebSearchPanel'
 import SourceViewer from './panels/SourceViewer'
 import ImageLightbox from './panels/ImageLightbox'
+import ToastHost, { showToast } from './Toast'
 import StatusBar from './StatusBar'
 import SettingsModal from './settings/SettingsModal'
 import { ChartIcon, GearIcon, SearchIcon } from './icons'
@@ -249,6 +250,7 @@ export default function App() {
           source_url: `file:///${encodeURIComponent(file.name)}`,
         })
       }
+      showToast('資料を追加しました')
       void refreshWorkspaceAssets(currentWsId)
     },
     [currentWsId, refreshWorkspaceAssets],
@@ -286,6 +288,7 @@ export default function App() {
           data_base64: base64,
         })
       }
+      showToast('画像を追加しました')
       void refreshWorkspaceAssets(currentWsId)
     },
     [currentDoc, currentWsId, refreshWorkspaceAssets],
@@ -432,6 +435,7 @@ export default function App() {
         </main>
       </div>
       {statusBarVisible && <StatusBar />}
+      <ToastHost />
     </div>
   )
 }
