@@ -18,6 +18,41 @@ async def is_alive(base_url: str, timeout: float = 3.0) -> bool:
         return False
 
 
+async def chat(
+    base_url: str,
+    messages: list[Message],
+    *,
+    temperature: float = 0.7,
+    max_tokens: int | None = None,
+    timeout: float = 300.0,
+    enable_thinking: bool | None = None,
+) -> str:
+    """非ストリーミングで content を返す（backend 内部処理用。ornith の要約など）。
+
+    enable_thinking=False で reasoning モデルの思考を無効化する
+    （高頻度の要約タスク用。ornith は一言の回答にも思考 ~1000 トークンを使う）。
+    """
+    payload: dict[str, Any] = {
+        "model": "local",
+        "messages": messages,
+        "stream": False,
+        "temperature": temperature,
+    }
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
+    if enable_thinking is not None:
+        payload["chat_template_kwargs"] = {"enable_thinking": enable_thinking}
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        res = await client.post(f"{base_url}/chat/completions", json=payload)
+        res.raise_for_status()
+        data = res.json()
+        choices = data.get("choices") or []
+        if not choices:
+            return ""
+        msg = choices[0].get("message", {})
+        return msg.get("content") or ""
+
+
 async def stream_chat(
     base_url: str,
     messages: list[Message],

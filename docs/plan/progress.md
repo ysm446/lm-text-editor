@@ -1,11 +1,11 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 09:08
+更新日時: 2026-07-07 09:30
 
 ## 現在の状態
 
-**フェーズ 3（RAG）実装完了**。hybrid search（Ruri + sqlite-vec + FTS5）と執筆時の RAG コンテキスト供給まで動作確認済み。残りは過去記事の実データ投入のみ。次はフェーズ 4（Web 検索）。
+**フェーズ 4（Web 検索）実装完了**。spec の主要 5 フェーズ+フェーズ 6 のうち、残るはフェーズ 5（仕上げ: 出典管理・設定画面・Markdown 書き出し・マルチモーダル）と過去記事の実データ投入。
 
 ## 完了済み
 
@@ -87,6 +87,13 @@
   - **事故と復旧**: 検証中にユーザーの実文書「LLMの推論」をテスト保存で上書き。SQLite の旧ページ残骸から content_json を抽出して完全復旧（バックアップ: ライブラリ内 `lm-editor.sqlite3.bak-recovery`）。再発防止ルールを CLAUDE.md「検証」に追記。
 
 - 2026-07-07 書式ツールバー（太字〜リンク、undo/redo。StarterKit v3 の Link / Underline を活用）。
+
+- 2026-07-07 フェーズ 4 Web 検索:
+  - manager を 2 スロット化（gemma :8080 / ornith :8081）。モデルバーに「検索LLM」の起動/停止を追加。
+  - 検索: ddgs（キー不要）既定、TAVILY_API_KEY 設定時は Tavily 優先。ornith がクエリ分解（enable_thinking=false で高速化。news-picker の知見）。
+  - 取り込み: httpx + trafilatura（favor_precision）→ 原文チャンク（rag_chunk, web）+ ornith 要約のソースノート（note_fts / note_vec で hybrid 検索対応、/rag/search の notes に統合）。
+  - UI: 上部バー「🔍 Web 検索」モーダル（検索 → 取り込む → 要約表示。取り込み先は現在のワークスペース）。
+  - 検証（一時ライブラリ・インプロセス）: ornith 実ロード → 日本語依頼を英語 3 クエリに分解 → ddgs 8 件 → GitHub ページ取り込み（3 チャンク + 高品質な日本語要約ノート）→ ノート/チャンク検索ヒットまで確認。
 
 ## 未完了（次にやること）
 

@@ -60,6 +60,10 @@ def init_rag_schema() -> None:
             CREATE VIRTUAL TABLE IF NOT EXISTS rag_fts USING fts5(
               chunk_id UNINDEXED, chunk_text, tokenize='trigram'
             );
+
+            CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(
+              note_id UNINDEXED, summary, tokenize='trigram'
+            );
             """
         )
         if not conn.execute(
@@ -68,6 +72,13 @@ def init_rag_schema() -> None:
             conn.execute(
                 f"CREATE VIRTUAL TABLE rag_vec USING vec0("
                 f"chunk_id INTEGER PRIMARY KEY, embedding FLOAT[{EMBED_DIM}])"
+            )
+        if not conn.execute(
+            "SELECT name FROM sqlite_master WHERE name = 'note_vec'"
+        ).fetchone():
+            conn.execute(
+                f"CREATE VIRTUAL TABLE note_vec USING vec0("
+                f"note_id INTEGER PRIMARY KEY, embedding FLOAT[{EMBED_DIM}])"
             )
 
 
@@ -127,6 +138,34 @@ def ingest(
     return chunk_ids
 
 
+def add_source_note(
+    *,
+    workspace_id: int | None,
+    source_url: str | None,
+    summary: str,
+) -> int:
+    """ソースノート（二次: 要約）を保存し、埋め込みと FTS にも登録する。"""
+    now = _now()
+    with connect() as conn:
+        cur = conn.execute(
+            "INSERT INTO source_note (workspace_id, source_url, summary, fetched_at)"
+            " VALUES (?, ?, ?, ?)",
+            (workspace_id, source_url, summary, now),
+        )
+        note_id = cur.lastrowid
+        assert note_id is not None
+        conn.execute(
+            "INSERT INTO note_fts (note_id, summary) VALUES (?, ?)",
+            (note_id, summary),
+        )
+        vec = embed_document(summary)
+        conn.execute(
+            "INSERT INTO note_vec (note_id, embedding) VALUES (?, ?)",
+            (note_id, struct.pack(f"{len(vec)}f", *vec)),
+        )
+    return note_id
+
+
 def delete_workspace_data(workspace_id: int) -> int:
     """ワークスペース削除時に、そのスコープの RAG データを掃除する。"""
     with connect() as conn:
@@ -141,7 +180,17 @@ def delete_workspace_data(workspace_id: int) -> int:
             conn.execute(f"DELETE FROM rag_fts WHERE chunk_id IN ({ph})", ids)
             conn.execute(f"DELETE FROM rag_vec WHERE chunk_id IN ({ph})", ids)
             conn.execute(f"DELETE FROM rag_chunk WHERE id IN ({ph})", ids)
-        conn.execute("DELETE FROM source_note WHERE workspace_id = ?", (workspace_id,))
+        note_ids = [
+            r["id"]
+            for r in conn.execute(
+                "SELECT id FROM source_note WHERE workspace_id = ?", (workspace_id,)
+            )
+        ]
+        if note_ids:
+            ph = ",".join("?" * len(note_ids))
+            conn.execute(f"DELETE FROM note_fts WHERE note_id IN ({ph})", note_ids)
+            conn.execute(f"DELETE FROM note_vec WHERE note_id IN ({ph})", note_ids)
+            conn.execute(f"DELETE FROM source_note WHERE id IN ({ph})", note_ids)
     return len(ids)
 
 

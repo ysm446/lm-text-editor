@@ -3,6 +3,7 @@ import Sidebar from './workspace/Sidebar'
 import Editor from './editor/Editor'
 import ModelBar from './ModelBar'
 import LibrarySwitcher from './LibrarySwitcher'
+import WebSearchPanel from './panels/WebSearchPanel'
 import { api, type Doc, type DocMeta, type Workspace } from './api/client'
 
 export default function App() {
@@ -12,6 +13,7 @@ export default function App() {
   const [currentDoc, setCurrentDoc] = useState<Doc | null>(null)
   const [titleDraft, setTitleDraft] = useState('')
   const [backendError, setBackendError] = useState<string | null>(null)
+  const [webSearchOpen, setWebSearchOpen] = useState(false)
 
   const refreshWorkspaces = useCallback(async () => {
     try {
@@ -145,8 +147,21 @@ export default function App() {
     <div className="app">
       <div className="top-bar">
         <LibrarySwitcher onSwitched={handleLibrarySwitched} />
+        <button
+          className="web-search-toggle"
+          onClick={() => setWebSearchOpen(true)}
+          title="Web 検索して資料を取り込む（原文チャンク + 要約ノート）"
+        >
+          🔍 Web 検索
+        </button>
         <ModelBar />
       </div>
+      {webSearchOpen && (
+        <WebSearchPanel
+          workspaceId={currentWsId}
+          onClose={() => setWebSearchOpen(false)}
+        />
+      )}
       <div className="app-body">
         <Sidebar
         workspaces={workspaces}

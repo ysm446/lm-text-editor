@@ -27,6 +27,8 @@ from backend.llm import prompts
 from backend.rag import embed as rag_embed
 from backend.rag import search as rag_search
 from backend.rag import store as rag_store
+from backend.websearch import ingest as web_ingest
+from backend.websearch import search as web_search
 
 
 @asynccontextmanager
@@ -108,6 +110,17 @@ class GenerateSectionRequest(BaseModel):
     instruction: str
     document_md: str | None = None
     use_rag: bool = False  # フェーズ 3 で実装。現状は無視される
+
+
+class WebSearchRequest(BaseModel):
+    query: str
+    workspace_id: int | None = None  # 予約（検索履歴等で使用予定）
+    max_results: int = 8
+
+
+class WebIngestRequest(BaseModel):
+    url: str
+    workspace_id: int | None = None
 
 
 class RagSearchRequest(BaseModel):
@@ -310,20 +323,62 @@ def list_local_models() -> list[dict[str, Any]]:
 
 @app.get("/llama/status")
 def llama_status() -> dict[str, Any]:
-    return llm_manager.get_status()
+    return llm_manager.get_status("gemma")
 
 
 @app.post("/llama/switch")
 def llama_switch(body: LlamaSwitchRequest) -> dict[str, Any]:
     try:
-        return llm_manager.switch_model(body.model_path)
+        return llm_manager.start("gemma", body.model_path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/llama/eject")
 def llama_eject() -> dict[str, Any]:
-    return llm_manager.eject_model()
+    return llm_manager.stop("gemma")
+
+
+@app.get("/ornith/status")
+def ornith_status() -> dict[str, Any]:
+    return llm_manager.get_status("ornith")
+
+
+@app.post("/ornith/start")
+def ornith_start() -> dict[str, Any]:
+    try:
+        return llm_manager.start("ornith")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/ornith/stop")
+def ornith_stop() -> dict[str, Any]:
+    return llm_manager.stop("ornith")
+
+
+@app.post("/web/search")
+async def web_search_endpoint(body: WebSearchRequest) -> dict[str, Any]:
+    """Web 検索（ornith 起動時はクエリ分解あり）。"""
+    if not body.query.strip():
+        raise HTTPException(status_code=400, detail="query is required")
+    try:
+        return await web_search.search(body.query, body.max_results)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.post("/web/ingest")
+async def web_ingest_endpoint(body: WebIngestRequest) -> dict[str, Any]:
+    """URL の本文を取り込み、原文チャンク + ソースノートを保存する。"""
+    if not body.url.strip().startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="http(s) の URL を指定してください")
+    try:
+        return await web_ingest.ingest_url(body.url.strip(), body.workspace_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"取得に失敗しました: {exc}")
 
 
 async def _require_llm(task: str) -> dict:
@@ -341,7 +396,8 @@ def rag_search_endpoint(body: RagSearchRequest) -> dict[str, Any]:
     if not body.query.strip():
         raise HTTPException(status_code=400, detail="query is required")
     chunks = rag_search.hybrid_search(body.query, body.workspace_id, body.top_k)
-    return {"chunks": chunks, "notes": []}  # notes はフェーズ 4（ソースノート）で実装
+    notes = rag_search.search_notes(body.query, body.workspace_id, body.top_k)
+    return {"chunks": chunks, "notes": notes}
 
 
 @app.post("/rag/ingest")

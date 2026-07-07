@@ -1,7 +1,7 @@
 # plan.md — 実装方針と優先順位
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 09:08
+更新日時: 2026-07-07 09:30
 
 ## 実装方針
 
@@ -40,10 +40,11 @@
 
 ### フェーズ 4: Web 検索
 
-- [ ] ornith 9B（:8081）接続と `<think>` パーサ（news-desk の処理を流用）
-- [ ] 検索 API 接続（Tavily 第一候補。SearXNG / Brave をフォールバック候補として検討）
-- [ ] httpx 取得 → trafilatura 本文抽出 → ornith 要約
-- [ ] 二層保存（原文チャンク + ソースノート、`source_url` / `fetched_at` 必須）
+- [x] ornith 9B（:8081）接続。モデルバーの「検索LLM」から起動/停止（manager を 2 スロット化）。--jinja で思考は reasoning_content に分離、高頻度タスクは `chat_template_kwargs {"enable_thinking": false}` で思考オフ（news-picker の知見）。`<think>` パーサは保険として併用
+- [x] 検索 API: ddgs / DuckDuckGo（キー不要、news-picker 流用）を既定とし、TAVILY_API_KEY があれば Tavily を優先。ornith 起動時はクエリ分解（1〜3 クエリ）
+- [x] httpx 取得 → trafilatura 本文抽出（favor_precision）→ ornith 要約（3〜6 行、8000 字上限）
+- [x] 二層保存（原文チャンク + ソースノート。ノートも埋め込み + FTS5 で hybrid 検索し /rag/search の notes に返す）
+- [x] UI: 上部バー「🔍 Web 検索」→ 検索 → 結果ごとに「取り込む」→ 要約表示
 
 ### フェーズ 5: 仕上げ
 

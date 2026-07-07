@@ -69,6 +69,21 @@ export interface LibraryState {
   libraries: Library[]
 }
 
+export interface WebSearchResult {
+  title: string
+  url: string
+  snippet: string
+  query: string
+}
+
+export interface WebIngestResult {
+  url: string
+  title: string
+  chunk_ids: number[]
+  note_id: number | null
+  summary: string | null
+}
+
 export interface LocalModel {
   id: string
   path: string
@@ -201,6 +216,29 @@ export const api = {
 
   llamaEject: () =>
     request<{ status: string }>('/llama/eject', { method: 'POST' }),
+
+  ornithStatus: () => request<LlamaStatus>('/ornith/status'),
+
+  ornithStart: () =>
+    request<{ status: string }>('/ornith/start', { method: 'POST' }),
+
+  ornithStop: () =>
+    request<{ status: string }>('/ornith/stop', { method: 'POST' }),
+
+  webSearch: (query: string, maxResults = 8) =>
+    request<{ queries: string[]; results: WebSearchResult[]; provider: string }>(
+      '/web/search',
+      {
+        method: 'POST',
+        body: JSON.stringify({ query, max_results: maxResults }),
+      },
+    ),
+
+  webIngest: (url: string, workspaceId: number | null) =>
+    request<WebIngestResult>('/web/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ url, workspace_id: workspaceId }),
+    }),
 
   uploadAsset: async (body: {
     document_id: number

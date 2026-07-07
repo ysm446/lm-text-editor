@@ -1,8 +1,9 @@
-"""llama-server の subprocess 管理（lm-chat の llama_manager を簡略移植）。
+"""llama-server の subprocess 管理（dual-port: gemma :8080 / ornith :8081）。
 
-- models/ 配下の GGUF を列挙し、選択したモデルで llama-server (:8080) を起動する。
-- PID を data/llama_runtime.json に記録し、切替・停止時は PID を検証してから kill する
-  （PID 再利用や外部起動の llama-server を誤って殺さないため）。
+- gemma スロット: models/ から選んだ GGUF を :8080 に起動（執筆・校正・画像）。
+- ornith スロット: 固定モデル（検索クエリ分解・要約）を :8081 に起動。
+- PID を ~/.lm-text-editor/llama_runtime.json に記録し、kill 前に tasklist で
+  プロセス名検証（PID 再利用や外部起動の誤殺防止）。
 """
 
 from __future__ import annotations
@@ -24,26 +25,38 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 LLAMA_EXE = ROOT_DIR / "runtime" / "llama.cpp" / "llama-server.exe"
 MODELS_DIR = ROOT_DIR / "models"
 
-LLAMA_HOST = "127.0.0.1"
-LLAMA_PORT = int(config.GEMMA_BASE_URL.rsplit(":", 1)[-1].split("/")[0])
-HEALTH_URL = f"http://{LLAMA_HOST}:{LLAMA_PORT}/health"
 
-# Gemma 4 は reasoning モデルのため --reasoning-budget 0 必須（CLAUDE.md 参照）
-SERVER_ARGS = [
-    "--host", LLAMA_HOST,
-    "--port", str(LLAMA_PORT),
-    "-ngl", "99",
-    "-c", "16384",
-    "--jinja",
-    "--reasoning-budget", "0",
-]
+def _port_of(base_url: str) -> int:
+    return int(base_url.rsplit(":", 1)[-1].split("/")[0])
+
+
+SLOTS: dict[str, dict[str, Any]] = {
+    "gemma": {
+        "port": _port_of(config.GEMMA_BASE_URL),
+        "fixed_model": None,  # UI で選択
+        # Gemma 4 は reasoning モデルのため --reasoning-budget 0 必須（CLAUDE.md 参照）
+        "args": ["-ngl", "99", "-c", "16384", "--jinja", "--reasoning-budget", "0"],
+    },
+    "ornith": {
+        "port": _port_of(config.ORNITH_BASE_URL),
+        "fixed_model": MODELS_DIR / "Ornith-1.0-9B-GGUF" / "ornith-1.0-9b-Q4_K_M.gguf",
+        # --jinja で思考は reasoning_content に分離される。要約などの高頻度タスクは
+        # リクエスト側の chat_template_kwargs {"enable_thinking": false} で思考を切る
+        # （news-picker の知見: ornith は一言の回答にも思考 ~1000 トークンを使う）
+        "args": ["-ngl", "99", "-c", "8192", "--jinja"],
+    },
+}
 
 
 def _load_state() -> dict[str, Any]:
     state_file = paths.llama_runtime_path()
     if state_file.exists():
         try:
-            return json.loads(state_file.read_text("utf-8"))
+            state = json.loads(state_file.read_text("utf-8"))
+            # 旧形式（フラット = gemma のみ）からの移行
+            if "pid" in state or "active_model_path" in state:
+                state = {"gemma": state}
+            return state
         except Exception as exc:
             logger.warning("failed to read %s: %s", state_file, exc)
     return {}
@@ -88,83 +101,101 @@ def _pid_is_llama_server(pid: int) -> bool:
         return False
 
 
-def _health() -> str:
+def _health(port: int) -> str:
     """'ready' | 'loading' | 'down' を返す。"""
     try:
-        res = httpx.get(HEALTH_URL, timeout=2)
+        res = httpx.get(f"http://127.0.0.1:{port}/health", timeout=2)
         return "ready" if res.status_code == 200 else "loading"
     except httpx.HTTPError:
         return "down"
 
 
-def _kill_tracked() -> None:
+def _kill_tracked(slot: str) -> None:
     state = _load_state()
-    pid = state.get("pid")
+    slot_state = state.get(slot) or {}
+    pid = slot_state.get("pid")
     if isinstance(pid, int) and pid > 0:
         if _pid_is_llama_server(pid):
             subprocess.run(
                 ["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True
             )
-            logger.info("killed tracked llama-server pid=%s", pid)
-        state["pid"] = None
+            logger.info("killed tracked llama-server (%s) pid=%s", slot, pid)
+        slot_state["pid"] = None
+        state[slot] = slot_state
         _save_state(state)
-    elif _health() != "down":
-        # 追跡外（start-llm.bat 等で外部起動）の llama-server は殺さない
-        logger.warning("untracked llama-server is running; skip kill")
+    elif _health(SLOTS[slot]["port"]) != "down":
+        # 追跡外（bat 等で外部起動）の llama-server は殺さない
+        logger.warning("untracked llama-server on port %s; skip kill", SLOTS[slot]["port"])
 
 
-def get_status() -> dict[str, Any]:
+def get_status(slot: str) -> dict[str, Any]:
+    spec = SLOTS[slot]
     state = _load_state()
-    health = _health()
-    pid = state.get("pid")
+    slot_state = state.get(slot) or {}
+    health = _health(spec["port"])
+    pid = slot_state.get("pid")
     tracked = isinstance(pid, int) and pid > 0 and _pid_is_llama_server(pid)
 
     if health == "down":
         if tracked:
-            # プロセスは生きているがポート未オープン（起動直後）
-            status = "loading"
+            status = "loading"  # プロセスは生きているがポート未オープン（起動直後）
         else:
             status = "stopped"
             if pid:  # クラッシュ等で消えた stale PID を掃除
-                state["pid"] = None
-                state["active_model_path"] = None
+                slot_state["pid"] = None
+                slot_state["active_model_path"] = None
+                state[slot] = slot_state
                 _save_state(state)
     else:
-        status = health  # ready / loading
+        status = health
 
     return {
         "status": status,  # 'stopped' | 'loading' | 'ready'
-        "active_model_path": state.get("active_model_path") if (tracked or health != "down") else None,
+        "active_model_path": slot_state.get("active_model_path")
+        if (tracked or health != "down")
+        else None,
         "external": health != "down" and not tracked,
     }
 
 
-def switch_model(model_path: str) -> dict[str, Any]:
-    p = Path(model_path).resolve()
+def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
+    spec = SLOTS[slot]
+    if model_path is None:
+        if spec["fixed_model"] is None:
+            raise ValueError("model_path is required")
+        p = Path(spec["fixed_model"])
+    else:
+        p = Path(model_path).resolve()
+        if MODELS_DIR.resolve() not in p.parents:
+            raise ValueError("models/ 配下のモデルのみ指定できます")
     if not p.exists():
-        raise ValueError(f"モデルが見つかりません: {model_path}")
-    if MODELS_DIR.resolve() not in p.parents:
-        raise ValueError("models/ 配下のモデルのみ指定できます")
+        raise ValueError(f"モデルが見つかりません: {p}")
     if not LLAMA_EXE.exists():
         raise ValueError(f"llama-server が見つかりません: {LLAMA_EXE}")
 
-    status = get_status()
+    status = get_status(slot)
     if status["external"]:
         raise ValueError(
-            "外部起動の llama-server が :8080 で稼働中です。先にそちらを停止してください。"
+            f"外部起動の llama-server が :{spec['port']} で稼働中です。先にそちらを停止してください。"
         )
 
-    _kill_tracked()
+    _kill_tracked(slot)
     time.sleep(1)
 
-    cmd = [str(LLAMA_EXE), "-m", str(p), *SERVER_ARGS]
+    cmd = [
+        str(LLAMA_EXE),
+        "-m", str(p),
+        "--host", "127.0.0.1",
+        "--port", str(spec["port"]),
+        *spec["args"],
+    ]
     mmproj = next(
         (c for c in p.parent.glob("*.gguf") if "mmproj" in c.name.lower()), None
     )
     if mmproj:
         cmd += ["--mmproj", str(mmproj)]
 
-    logger.info("starting llama-server: %s", p.name)
+    logger.info("starting llama-server (%s): %s", slot, p.name)
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.DEVNULL,
@@ -178,11 +209,25 @@ def switch_model(model_path: str) -> dict[str, Any]:
             "llama-server の起動に失敗しました（ポート競合または引数エラーの可能性）"
         )
 
-    _save_state({"pid": proc.pid, "active_model_path": str(p)})
+    state = _load_state()
+    state[slot] = {"pid": proc.pid, "active_model_path": str(p)}
+    _save_state(state)
     return {"status": "loading", "active_model_path": str(p)}
 
 
-def eject_model() -> dict[str, Any]:
-    _kill_tracked()
-    _save_state({"pid": None, "active_model_path": None})
+def stop(slot: str) -> dict[str, Any]:
+    _kill_tracked(slot)
+    state = _load_state()
+    state[slot] = {"pid": None, "active_model_path": None}
+    _save_state(state)
     return {"status": "stopped"}
+
+
+# --- 後方互換ラッパ（gemma スロット） ---
+
+def switch_model(model_path: str) -> dict[str, Any]:
+    return start("gemma", model_path)
+
+
+def eject_model() -> dict[str, Any]:
+    return stop("gemma")
