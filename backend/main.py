@@ -381,6 +381,19 @@ def llama_eject() -> dict[str, Any]:
     return llm_manager.stop("gemma")
 
 
+@app.get("/embed/status")
+def embed_status() -> dict[str, Any]:
+    """埋め込みモデル（RAG 検索）の導入状態。"""
+    return rag_embed.status()
+
+
+@app.post("/embed/install")
+def embed_install() -> dict[str, Any]:
+    """埋め込みモデルを HF からダウンロードして常駐させる（バックグラウンド）。"""
+    rag_embed.install_async()
+    return rag_embed.status()
+
+
 @app.post("/web/search")
 async def web_search_endpoint(body: WebSearchRequest) -> dict[str, Any]:
     """Web 検索（文章用 LLM 起動時はクエリ分解あり）。"""

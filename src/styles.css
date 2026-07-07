@@ -2066,6 +2066,20 @@ select:focus-visible {
   margin-top: 22px;
 }
 
+.settings-embed-status {
+  margin: 0;
+  font-size: var(--fs-ui);
+}
+
+.settings-embed-status.ok {
+  color: var(--ok);
+}
+
+.settings-embed-status.error {
+  margin-top: 8px;
+  color: var(--danger);
+}
+
 .settings-theme-options {
   display: flex;
   gap: 12px;

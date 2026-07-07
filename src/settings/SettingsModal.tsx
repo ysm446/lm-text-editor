@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { api, type AppSettings, type LocalModel } from '../api/client'
+import { api, type AppSettings, type EmbedStatus, type LocalModel } from '../api/client'
 import { BookIcon, PencilIcon, SearchIcon, SunIcon } from '../icons'
 
 type Category = 'appearance' | 'editor' | 'llm' | 'websearch'
@@ -38,10 +38,28 @@ export default function SettingsModal({
   const [active, setActive] = useState<Category>('appearance')
   const [tavilyDraft, setTavilyDraft] = useState(settings.tavily_api_key)
   const [models, setModels] = useState<LocalModel[]>([])
+  const [embed, setEmbed] = useState<EmbedStatus | null>(null)
 
   useEffect(() => {
     void api.listLocalModels().then(setModels).catch(() => setModels([]))
+    void api.embedStatus().then(setEmbed).catch(() => setEmbed(null))
   }, [])
+
+  // インストール中は状態をポーリングして完了/失敗を反映する
+  useEffect(() => {
+    if (!embed?.installing) return
+    const timer = window.setInterval(() => {
+      void api.embedStatus().then(setEmbed).catch(() => undefined)
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [embed?.installing])
+
+  const installEmbed = () => {
+    void api
+      .embedInstall()
+      .then(setEmbed)
+      .catch(() => setEmbed(null))
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -158,6 +176,34 @@ export default function SettingsModal({
                       <span key={n}>{ctxLabel(n)}</span>
                     ))}
                   </div>
+                </section>
+                <section>
+                  <h3>埋め込みモデル（RAG 検索）</h3>
+                  <p className="settings-desc">
+                    資料の意味検索に使う Ruri v3（{embed?.model ?? 'cl-nagoya/ruri-v3-310m'}）。
+                    通常はオフラインで動作します。未インストールの場合のみ、ここから
+                    HuggingFace より一度だけダウンロードします（約 0.6 GB・要ネット接続）。
+                  </p>
+                  {embed == null ? (
+                    <p className="settings-desc">状態を取得できません（backend 未接続）。</p>
+                  ) : embed.installed ? (
+                    <p className="settings-embed-status ok">
+                      ✓ インストール済み{embed.loaded ? '（ロード済み）' : ''}
+                    </p>
+                  ) : embed.installing ? (
+                    <div className="settings-inline">
+                      <button disabled>インストール中…（数分かかります）</button>
+                    </div>
+                  ) : (
+                    <div className="settings-inline">
+                      <button onClick={installEmbed}>インストール</button>
+                    </div>
+                  )}
+                  {embed?.error && (
+                    <p className="settings-embed-status error">
+                      インストールに失敗しました: {embed.error}
+                    </p>
+                  )}
                 </section>
               </>
             )}

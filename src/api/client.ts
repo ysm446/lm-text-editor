@@ -142,6 +142,14 @@ export interface LlamaStatus {
   external: boolean
 }
 
+export interface EmbedStatus {
+  model: string
+  installed: boolean
+  loaded: boolean
+  installing: boolean
+  error: string | null
+}
+
 // ストリーミング API（text/plain チャンク）を async generator として読む
 export async function* streamText(
   path: string,
@@ -262,6 +270,10 @@ export const api = {
 
   llamaEject: () =>
     request<{ status: string }>('/llama/eject', { method: 'POST' }),
+
+  embedStatus: () => request<EmbedStatus>('/embed/status'),
+
+  embedInstall: () => request<EmbedStatus>('/embed/install', { method: 'POST' }),
 
   systemResources: () => request<SystemResources>('/system/resources'),
 
