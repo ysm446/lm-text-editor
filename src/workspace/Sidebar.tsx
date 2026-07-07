@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { DocMeta, RagSource, Workspace, WorkspaceImage } from '../api/client'
 import LibrarySwitcher from '../LibrarySwitcher'
-import NewSourceEditor from '../panels/NewSourceEditor'
 
 // サイドバー幅（ドラッグで可変・localStorage に記憶）
 const WIDTH_KEY = 'lm-sidebar-width'
@@ -16,10 +15,12 @@ function initialWidth(): number {
 
 // ソースの表示名（URL はファイル名 / ホスト名に短縮）
 function sourceLabel(s: RagSource): string {
+  // 手動ノートはタイトルを表示（本文の正は manual_note 側）
+  if (s.source_type === 'note') return s.title || '無題'
   if (!s.source_url) return `（${s.source_type}）`
   try {
-    // 手動追加ノート（note:///<タイトル>）とファイル（file:///<名前>）は末尾を復号して表示
-    if (s.source_url.startsWith('note://') || s.source_url.startsWith('file://')) {
+    // ファイル（file:///<名前>）は末尾を復号して表示
+    if (s.source_url.startsWith('file://')) {
       return decodeURIComponent(s.source_url.split('/').pop() ?? s.source_url)
     }
     const u = new URL(s.source_url)
@@ -218,7 +219,7 @@ interface SidebarProps {
   onRenameDoc: (id: number, title: string) => void
   onDeleteDoc: (id: number) => void
   onAddSourceFiles: (files: FileList) => void
-  onCreateNote: (title: string, content: string) => Promise<void> // 手動追加（md → チャンク化）
+  onCreateNote: () => void // 新規ノートを作成して左ペインで編集を開く
   onWebSearch: () => void // Web 検索パネルを開く
   onViewSource: (source: RagSource) => void
   onDeleteSource: (source: RagSource) => void
@@ -315,9 +316,8 @@ export default function Sidebar({
       return next
     })
 
-  // 資料（RAG）の＋メニュー（新規追加 / ファイル読み込み / ウェブ検索）と手動追加エディタ
+  // 資料（RAG）の＋メニュー（新規作成 / ファイル読み込み / ウェブ検索）
   const [sourceMenuOpen, setSourceMenuOpen] = useState(false)
-  const [noteEditorOpen, setNoteEditorOpen] = useState(false)
   const sourceMenuRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!sourceMenuOpen) return
@@ -384,10 +384,11 @@ export default function Sidebar({
               <button
                 onClick={() => {
                   setSourceMenuOpen(false)
-                  setNoteEditorOpen(true)
+                  openSection('sources')
+                  onCreateNote()
                 }}
               >
-                新規追加（Markdown を書く）
+                新規作成（Markdown を書く）
               </button>
               <button
                 onClick={() => {
@@ -419,7 +420,13 @@ export default function Sidebar({
                   onClick={() => onViewSource(s)}
                 >
                   <span className={`source-badge type-${s.source_type}`}>
-                    {s.source_type === 'web' ? 'W' : s.source_type === 'article' ? 'A' : 'R'}
+                    {s.source_type === 'web'
+                      ? 'W'
+                      : s.source_type === 'article'
+                        ? 'A'
+                        : s.source_type === 'note'
+                          ? 'M'
+                          : 'R'}
                   </span>
                   <span className="source-name">{sourceLabel(s)}</span>
                   <span className="source-count">{s.chunk_count}</span>
@@ -559,15 +566,6 @@ export default function Sidebar({
       onPointerUp={onResizeUp}
       title="ドラッグで幅を変更"
     />
-    {noteEditorOpen && (
-      <NewSourceEditor
-        onSave={async (title, content) => {
-          await onCreateNote(title, content)
-          openSection('sources')
-        }}
-        onClose={() => setNoteEditorOpen(false)}
-      />
-    )}
     </div>
   )
 }

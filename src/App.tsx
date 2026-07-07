@@ -271,20 +271,21 @@ export default function App() {
     [currentWsId, refreshWorkspaceAssets],
   )
 
-  const createNote = useCallback(
-    async (title: string, content: string) => {
-      if (currentWsId == null) return
-      await api.ragIngest({
-        source_type: 'reference',
-        content,
-        workspace_id: currentWsId,
-        source_url: `note:///${encodeURIComponent(title)}`,
-      })
-      showToast('資料を追加しました（チャンク化済み）')
-      void refreshWorkspaceAssets(currentWsId)
-    },
-    [currentWsId, refreshWorkspaceAssets],
-  )
+  // 新規作成: 空のノートを即作成 → サイドバーへ反映 → 左ペインで編集を開く
+  const createNote = useCallback(async () => {
+    if (currentWsId == null) return
+    const note = await api.createNote(currentWsId, '無題', '')
+    await refreshWorkspaceAssets(currentWsId)
+    setViewingSource({
+      source_type: 'note',
+      source_url: note.source_url,
+      note_id: note.id,
+      title: note.title,
+      chunk_count: 0,
+      note_count: 0,
+      fetched_at: null,
+    })
+  }, [currentWsId, refreshWorkspaceAssets])
 
   const deleteSource = useCallback(
     async (source: RagSource) => {
@@ -399,7 +400,7 @@ export default function App() {
         onRenameDoc={(id, title) => void renameDoc(id, title)}
         onDeleteDoc={(id) => void deleteDoc(id)}
         onAddSourceFiles={(files) => void addSourceFiles(files)}
-        onCreateNote={createNote}
+        onCreateNote={() => void createNote()}
         onWebSearch={() => setWebSearchOpen(true)}
         onViewSource={setViewingSource}
         onDeleteSource={(s) => void deleteSource(s)}
@@ -421,6 +422,7 @@ export default function App() {
                 <SourceViewer
                   workspaceId={currentWsId}
                   source={paneSource}
+                  onSaved={() => void refreshWorkspaceAssets(currentWsId)}
                   onClose={() => setViewingSource(null)}
                 />
               )}

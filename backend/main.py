@@ -137,6 +137,17 @@ class RagIngestRequest(BaseModel):
     source_url: str | None = None
 
 
+class NoteCreateRequest(BaseModel):
+    workspace_id: int
+    title: str = "無題"
+    content: str = ""
+
+
+class NoteUpdateRequest(BaseModel):
+    title: str
+    content: str
+
+
 class ReviewInlineRequest(BaseModel):
     text: str
     context_before: str | None = None
@@ -477,6 +488,29 @@ def rag_ingest_endpoint(body: RagIngestRequest) -> dict[str, Any]:
         source_url=body.source_url,
     )
     return {"ok": True, "chunk_ids": chunk_ids}
+
+
+@app.post("/rag/note")
+def create_note_endpoint(body: NoteCreateRequest) -> dict[str, Any]:
+    """編集可能な手動ノートを作成する（本文があればチャンク化して登録）。"""
+    return rag_store.create_note(body.workspace_id, body.title.strip() or "無題", body.content)
+
+
+@app.get("/rag/note/{note_id}")
+def get_note_endpoint(note_id: int) -> dict[str, Any]:
+    note = rag_store.get_note(note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="note not found")
+    return note
+
+
+@app.put("/rag/note/{note_id}")
+def update_note_endpoint(note_id: int, body: NoteUpdateRequest) -> dict[str, Any]:
+    """手動ノートの本文を更新し、チャンクを作り直す。"""
+    try:
+        return rag_store.update_note(note_id, body.title.strip() or "無題", body.content)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @app.post("/generate/continue")

@@ -70,11 +70,20 @@ export interface LibraryState {
 }
 
 export interface RagSource {
-  source_type: string // 'article' | 'reference' | 'web'
+  source_type: string // 'article' | 'reference' | 'web' | 'note'
   source_url: string | null
   chunk_count: number
   note_count: number
   fetched_at: string | null
+  note_id?: number | null // source_type === 'note' のときの手動ノート id
+  title?: string | null // 手動ノートの表示タイトル
+}
+
+export interface NoteContent {
+  id: number
+  workspace_id: number | null
+  title: string
+  content: string
 }
 
 export interface SourceDetail {
@@ -297,6 +306,20 @@ export const api = {
     request<{ ok: boolean; chunk_ids: number[] }>('/rag/ingest', {
       method: 'POST',
       body: JSON.stringify(body),
+    }),
+
+  createNote: (workspaceId: number, title: string, content: string) =>
+    request<NoteContent & { source_url: string }>('/rag/note', {
+      method: 'POST',
+      body: JSON.stringify({ workspace_id: workspaceId, title, content }),
+    }),
+
+  getNote: (noteId: number) => request<NoteContent>(`/rag/note/${noteId}`),
+
+  updateNote: (noteId: number, title: string, content: string) =>
+    request<NoteContent & { source_url: string }>(`/rag/note/${noteId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ title, content }),
     }),
 
   getRagSourceDetail: (

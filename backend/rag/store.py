@@ -47,13 +47,24 @@ def init_rag_schema() -> None:
               chunk_text TEXT NOT NULL
             );
 
-            -- 二次: ソースノート（ornith 要約。フェーズ 4 で投入開始）
+            -- 二次: ソースノート（LLM 要約）
             CREATE TABLE IF NOT EXISTS source_note (
               id INTEGER PRIMARY KEY,
               workspace_id INTEGER,
               source_url TEXT,
               summary TEXT NOT NULL,
               fetched_at TEXT
+            );
+
+            -- 手動ノート（編集可能な資料の本文の正）。チャンクは rag_chunk に
+            -- source_type='note', source_url='note://<id>' で派生保存する
+            CREATE TABLE IF NOT EXISTS manual_note (
+              id INTEGER PRIMARY KEY,
+              workspace_id INTEGER,
+              title TEXT NOT NULL,
+              content TEXT NOT NULL DEFAULT '',
+              created_at TEXT,
+              updated_at TEXT
             );
 
             -- 全文検索ミラー（trigram: 日本語対応）
@@ -166,25 +177,137 @@ def add_source_note(
     return note_id
 
 
+# --- 手動ノート（編集可能な資料）---
+
+
+def _note_source_url(note_id: int) -> str:
+    return f"note://{note_id}"
+
+
+def _clear_chunks_by_url(
+    conn: sqlite3.Connection, workspace_id: int | None, source_url: str
+) -> None:
+    """指定 source_url のチャンク（rag_chunk / rag_fts / rag_vec）だけを削除する。"""
+    ids = [
+        r["id"]
+        for r in conn.execute(
+            "SELECT id FROM rag_chunk WHERE workspace_id IS ? AND source_url = ?",
+            (workspace_id, source_url),
+        )
+    ]
+    if ids:
+        ph = ",".join("?" * len(ids))
+        conn.execute(f"DELETE FROM rag_fts WHERE chunk_id IN ({ph})", ids)
+        conn.execute(f"DELETE FROM rag_vec WHERE chunk_id IN ({ph})", ids)
+        conn.execute(f"DELETE FROM rag_chunk WHERE id IN ({ph})", ids)
+
+
+def create_note(workspace_id: int, title: str, content: str = "") -> dict[str, Any]:
+    """手動ノートを作成し、本文があればチャンク化して RAG に登録する。"""
+    now = _now()
+    with connect() as conn:
+        cur = conn.execute(
+            "INSERT INTO manual_note (workspace_id, title, content, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (workspace_id, title, content, now, now),
+        )
+        note_id = cur.lastrowid
+        assert note_id is not None
+    if content.strip():
+        ingest("note", content, workspace_id=workspace_id, source_url=_note_source_url(note_id))
+    return {
+        "id": note_id,
+        "workspace_id": workspace_id,
+        "title": title,
+        "content": content,
+        "source_url": _note_source_url(note_id),
+    }
+
+
+def get_note(note_id: int) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT id, workspace_id, title, content FROM manual_note WHERE id = ?",
+            (note_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def update_note(note_id: int, title: str, content: str) -> dict[str, Any]:
+    """手動ノートの本文を更新し、チャンクを作り直す（再インデックス）。"""
+    now = _now()
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT workspace_id FROM manual_note WHERE id = ?", (note_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("note not found")
+        workspace_id = row["workspace_id"]
+        conn.execute(
+            "UPDATE manual_note SET title = ?, content = ?, updated_at = ? WHERE id = ?",
+            (title, content, now, note_id),
+        )
+        _clear_chunks_by_url(conn, workspace_id, _note_source_url(note_id))
+    if content.strip():
+        ingest("note", content, workspace_id=workspace_id, source_url=_note_source_url(note_id))
+    return {
+        "id": note_id,
+        "workspace_id": workspace_id,
+        "title": title,
+        "content": content,
+        "source_url": _note_source_url(note_id),
+    }
+
+
 def list_sources(workspace_id: int) -> list[dict[str, Any]]:
-    """ワークスペースに取り込まれた資料をソース単位で一覧する。"""
+    """ワークスペースに取り込まれた資料をソース単位で一覧する。
+
+    手動ノート（編集可能）は本文が空でも一覧に出す（manual_note を基準に）。
+    """
     with connect() as conn:
         rows = conn.execute(
             "SELECT source_type, source_url, COUNT(*) AS chunk_count,"
             " MIN(fetched_at) AS fetched_at"
-            " FROM rag_chunk WHERE workspace_id = ?"
+            " FROM rag_chunk WHERE workspace_id = ? AND source_type != 'note'"
             " GROUP BY source_type, source_url ORDER BY MIN(id) DESC",
             (workspace_id,),
         ).fetchall()
-        note_rows = conn.execute(
+        manual_rows = conn.execute(
+            "SELECT id, title, updated_at FROM manual_note"
+            " WHERE workspace_id = ? ORDER BY id DESC",
+            (workspace_id,),
+        ).fetchall()
+        note_chunk_rows = conn.execute(
+            "SELECT source_url, COUNT(*) AS n FROM rag_chunk"
+            " WHERE workspace_id = ? AND source_type = 'note' GROUP BY source_url",
+            (workspace_id,),
+        ).fetchall()
+        summary_rows = conn.execute(
             "SELECT source_url, COUNT(*) AS n FROM source_note"
             " WHERE workspace_id = ? GROUP BY source_url",
             (workspace_id,),
         ).fetchall()
-    notes_by_url = {r["source_url"]: int(r["n"]) for r in note_rows}
-    return [
-        {**dict(r), "note_count": notes_by_url.get(r["source_url"], 0)} for r in rows
-    ]
+    notes_by_url = {r["source_url"]: int(r["n"]) for r in summary_rows}
+    chunks_by_note = {r["source_url"]: int(r["n"]) for r in note_chunk_rows}
+    result: list[dict[str, Any]] = []
+    for r in manual_rows:
+        url = _note_source_url(r["id"])
+        result.append(
+            {
+                "source_type": "note",
+                "source_url": url,
+                "note_id": r["id"],
+                "title": r["title"],
+                "chunk_count": chunks_by_note.get(url, 0),
+                "note_count": 0,
+                "fetched_at": r["updated_at"],
+            }
+        )
+    for r in rows:
+        result.append(
+            {**dict(r), "note_count": notes_by_url.get(r["source_url"], 0)}
+        )
+    return result
 
 
 def get_source_detail(
@@ -252,6 +375,14 @@ def delete_source(
                 conn.execute(f"DELETE FROM note_fts WHERE note_id IN ({ph})", note_ids)
                 conn.execute(f"DELETE FROM note_vec WHERE note_id IN ({ph})", note_ids)
                 conn.execute(f"DELETE FROM source_note WHERE id IN ({ph})", note_ids)
+        # 手動ノートは本文の正（manual_note）も消す
+        if source_type == "note" and source_url and source_url.startswith("note://"):
+            try:
+                conn.execute(
+                    "DELETE FROM manual_note WHERE id = ?", (int(source_url[len("note://"):]),)
+                )
+            except ValueError:
+                pass
     return len(ids)
 
 
@@ -280,6 +411,7 @@ def delete_workspace_data(workspace_id: int) -> int:
             conn.execute(f"DELETE FROM note_fts WHERE note_id IN ({ph})", note_ids)
             conn.execute(f"DELETE FROM note_vec WHERE note_id IN ({ph})", note_ids)
             conn.execute(f"DELETE FROM source_note WHERE id IN ({ph})", note_ids)
+        conn.execute("DELETE FROM manual_note WHERE workspace_id = ?", (workspace_id,))
     return len(ids)
 
 
