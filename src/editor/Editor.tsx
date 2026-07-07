@@ -507,25 +507,10 @@ export default function Editor({
 
   return (
     <div className="editor-root">
-      {/* スクロールしても書式ツールバーは上部に固定表示する */}
+      {/* スクロールしても操作ツールバーは上部に固定表示する */}
       <div className="editor-toolbars">
       <div className="toolbar-row">
-      <FormatToolbar editor={editor} />
-      </div>
-      {/* 校正結果は sticky ラッパー内に置き、スクロール位置に関係なくツールバー直下に見せる */}
-      {review && (
-        <InlineDiff
-          original={review.original}
-          revised={review.revised}
-          status={review.status}
-          error={review.error}
-          onAccept={acceptReview}
-          onReject={() => setReview(null)}
-        />
-      )}
-      </div>
-      {/* 操作ツールは浮いたパレット（ドラッグで移動可・位置は記憶） */}
-      <ToolPalette title="ツール">
+      <div className="editor-toolbar">
         <button
           disabled={selectionEmpty || review?.status === 'streaming'}
           onClick={() => void startReview()}
@@ -573,6 +558,23 @@ export default function Editor({
         >
           {saving ? '保存中…' : '保存'}
         </button>
+      </div>
+      </div>
+      {/* 校正結果は sticky ラッパー内に置き、スクロール位置に関係なくツールバー直下に見せる */}
+      {review && (
+        <InlineDiff
+          original={review.original}
+          revised={review.revised}
+          status={review.status}
+          error={review.error}
+          onAccept={acceptReview}
+          onReject={() => setReview(null)}
+        />
+      )}
+      </div>
+      {/* 書式ツール（太字・見出し・リスト等）は浮いたパレット（ドラッグで移動可・位置は記憶） */}
+      <ToolPalette title="書式">
+        <FormatToolbar editor={editor} />
       </ToolPalette>
       {/* 並び: ツールバー → タイトル → 本文 */}
       {titleSlot}
