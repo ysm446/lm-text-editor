@@ -539,10 +539,17 @@ select:focus-visible {
   padding: 3px 6px 3px 12px;
   color: var(--bar-text);
   min-width: 0;
-  width: min(560px, 46vw);
+  width: min(480px, 42vw);
   background: var(--bar-surface);
   border: 1px solid var(--bar-border);
   border-radius: var(--radius-m);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+/* ロード中はバーをアクセント色に染めて状態を示す */
+.model-bar.loading {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 32%, var(--bar-surface));
 }
 
 .model-dot {
@@ -624,8 +631,8 @@ select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 16px;
-  padding: 4px 16px;
+  gap: 10px;
+  padding: 4px 10px;
   background: var(--bar-bg);
   color: var(--bar-text);
   font-size: var(--fs-xs);
@@ -638,17 +645,17 @@ select:focus-visible {
 .statusbar-meter {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .statusbar-meter-label {
   color: var(--bar-muted);
-  width: 34px;
+  width: 30px;
   text-align: right;
 }
 
 .statusbar-meter-track {
-  width: 72px;
+  width: 52px;
   height: 5px;
   border-radius: 999px;
   background: var(--bar-surface);
@@ -662,17 +669,12 @@ select:focus-visible {
 }
 
 .statusbar-meter-value {
-  min-width: 84px;
+  min-width: 72px;
   color: var(--bar-text);
 }
 
 .statusbar-dim {
   color: var(--bar-faint);
-}
-
-/* トグルを右端に押しやるスペーサー（メーター非表示時も右端に留める） */
-.statusbar-spacer {
-  flex: 1;
 }
 
 /* ============================================================

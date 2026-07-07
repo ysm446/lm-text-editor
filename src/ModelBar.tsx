@@ -3,10 +3,6 @@ import { api, type LlamaStatus, type LocalModel } from './api/client'
 
 const POLL_MS = 3000
 
-function fileName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path
-}
-
 function sizeGB(bytes: number): string {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`
 }
@@ -78,22 +74,20 @@ export default function ModelBar() {
 
   const st = status?.status ?? 'stopped'
   const loading = switching || st === 'loading'
-  const activeName = status?.active_model_path
-    ? fileName(status.active_model_path)
-    : null
   const isActiveSelected =
     st === 'ready' && status?.active_model_path === selected
 
   return (
-    <div className="model-bar">
+    <div className={`model-bar${loading ? ' loading' : ''}`}>
       <span className={`model-dot ${loading ? 'loading' : st}`} />
-      <span className="model-bar-status">
-        {status == null && 'backend 未接続'}
-        {status != null && loading && `モデル起動中…（1〜2分）${activeName ? ` ${activeName}` : ''}`}
-        {status != null && !loading && st === 'ready' &&
-          (status.external ? `外部起動の LLM (:8080)` : activeName ?? 'LLM 稼働中')}
-        {status != null && !loading && st === 'stopped' && 'LLM 未起動'}
-      </span>
+      {/* 状態は原則バー（ドット + セレクト）で表現。特殊な状態だけテキストを出す */}
+      {status == null && <span className="model-bar-status">backend 未接続</span>}
+      {status != null && loading && (
+        <span className="model-bar-status">起動中…（1〜2分）</span>
+      )}
+      {status != null && !loading && st === 'ready' && status.external && (
+        <span className="model-bar-status">外部起動の LLM (:8080)</span>
+      )}
 
       <div className="model-bar-controls">
         {error && <span className="model-bar-error">{error}</span>}

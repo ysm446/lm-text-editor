@@ -98,7 +98,6 @@ export default function StatusBar({ visible, onToggle }: StatusBarProps) {
       ) : (
         <span className="statusbar-dim">リソース情報を取得できません</span>
       ))}
-      <span className="statusbar-spacer" />
       <button
         className={`statusbar-toggle${visible ? ' active' : ''}`}
         onClick={onToggle}
