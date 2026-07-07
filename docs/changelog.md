@@ -5,7 +5,7 @@
 
 ## 未リリース
 
-- 2026-07-08 15:55 チャットの返答末尾に生成統計を表示（⚡ tok/sec ・ 💬 トークン数 ・ 🕐 所要時間 ・ Finish reason）。`/chat` を NDJSON 化し、本文差分に続けて最後に統計 1 行を返す。統計は llama.cpp の usage（stream_options.include_usage）と timings（predicted_per_second 等）から取得し、無ければ所要時間＝実測、tok/sec＝トークン数/所要時間で算出。
+- 2026-07-08 15:55 チャットの返答末尾に生成統計を表示（tok/sec ・ トークン数 ・ 所要時間 ・ Finish reason）。アイコンは絵文字ではなくフラットな線画（雷/吹き出し/時計。currentColor でテーマ追従）。`/chat` を NDJSON 化し、本文差分に続けて最後に統計 1 行を返す。統計は llama.cpp の usage（stream_options.include_usage）と timings（predicted_per_second 等）から取得し、無ければ所要時間＝実測、tok/sec＝トークン数/所要時間で算出。
 - 2026-07-08 15:35 前回選択していたワークスペースを起動時に復元するようにした（サイドバーで自動的に開いた状態に戻る）。ワークスペース ID はライブラリ固有のため、記憶はライブラリ別（localStorage `lm-selected-ws:<ライブラリパス>`）。ライブラリを切り替えると、そのライブラリで最後に開いていたワークスペースを復元する。
 - 2026-07-08 15:20 表の列境界にマウスを乗せるとセルが縦に伸びて見える問題を修正。ホバー時に各セル末尾へ挿入される列リサイズハンドル（widget）が `:last-child` を奪い、段落の下マージンが復活していた。セル内ブロックのマージンを位置に依存せず一律 0 にして解消。
 - 2026-07-08 15:05 Web 検索の「取り込む」で Wikipedia 等が 403 Forbidden で失敗する問題を修正。Wikimedia はブラウザ偽装の UA を robot policy で弾くため、まずブラウザ相当 UA で取得し、403/429 のときだけ素性を名乗る識別子 UA で 1 回再試行するようにした（Accept / Accept-Language も付与）。実測で Wikipedia ページの取得・本文抽出まで成功。

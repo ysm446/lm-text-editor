@@ -1970,9 +1970,27 @@ select:focus-visible {
 
 /* 返答末尾の生成統計（tok/sec・トークン数・所要時間・finish reason） */
 .chat-msg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 6px;
   font-size: var(--fs-xs);
   color: var(--faint);
   padding: 0 2px;
+}
+
+.chat-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.chat-meta-item svg {
+  opacity: 0.85;
+}
+
+.chat-meta-sep {
+  color: var(--border);
 }
 
 .chat-panel-input {

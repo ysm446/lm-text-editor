@@ -105,6 +105,23 @@ export function LinkIcon({ size = 14 }: IconProps) {
   )
 }
 
+export function BoltIcon({ size = 13 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  )
+}
+
+export function ClockIcon({ size = 13 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  )
+}
+
 export function TableIcon({ size = 14 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

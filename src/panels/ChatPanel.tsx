@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import MarkdownIt from 'markdown-it'
+import { BoltIcon, ClockIcon, PromptIcon } from '../icons'
 
 // 返答は Markdown で表示する。html:false で生 HTML はエスケープ（LLM 出力の安全側）。
 // リンククリックは Electron 側の will-navigate が外部ブラウザへ流す。
@@ -18,13 +19,45 @@ export interface ChatMsg {
   meta?: ChatMeta | null // assistant 返答の生成統計（完了後に付く）
 }
 
-function metaLine(meta: ChatMeta): string {
-  const parts: string[] = []
-  if (meta.tps != null) parts.push(`⚡ ${meta.tps} tok/sec`)
-  if (meta.tokens != null) parts.push(`💬 ${meta.tokens} tokens`)
-  if (meta.elapsed != null) parts.push(`🕐 ${meta.elapsed}s`)
-  if (meta.finish_reason) parts.push(`Finish reason: ${meta.finish_reason}`)
-  return parts.join('  ·  ')
+function MetaLine({ meta }: { meta: ChatMeta }) {
+  const items: React.ReactNode[] = []
+  if (meta.tps != null)
+    items.push(
+      <span key="tps" className="chat-meta-item">
+        <BoltIcon size={12} />
+        {meta.tps} tok/sec
+      </span>,
+    )
+  if (meta.tokens != null)
+    items.push(
+      <span key="tok" className="chat-meta-item">
+        <PromptIcon size={12} />
+        {meta.tokens} tokens
+      </span>,
+    )
+  if (meta.elapsed != null)
+    items.push(
+      <span key="el" className="chat-meta-item">
+        <ClockIcon size={12} />
+        {meta.elapsed}s
+      </span>,
+    )
+  if (meta.finish_reason)
+    items.push(
+      <span key="fr" className="chat-meta-item">
+        Finish reason: {meta.finish_reason}
+      </span>,
+    )
+  return (
+    <>
+      {items.map((it, i) => (
+        <Fragment key={i}>
+          {i > 0 && <span className="chat-meta-sep">·</span>}
+          {it}
+        </Fragment>
+      ))}
+    </>
+  )
 }
 
 export interface ChatState {
@@ -99,7 +132,9 @@ export default function ChatPanel({
                 <div className="chat-msg-body">{m.content}</div>
               )}
               {m.role === 'assistant' && m.meta && !streamingThis && (
-                <div className="chat-msg-meta">{metaLine(m.meta)}</div>
+                <div className="chat-msg-meta">
+                  <MetaLine meta={m.meta} />
+                </div>
               )}
             </div>
           )
