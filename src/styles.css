@@ -2133,8 +2133,8 @@ select:focus-visible {
    設定モーダル
    ============================================================ */
 .settings-modal {
-  width: min(720px, calc(100vw - 64px));
-  height: min(480px, calc(100vh - 120px));
+  width: min(920px, calc(100vw - 48px));
+  height: min(660px, calc(100vh - 80px));
 }
 
 .settings-modal-header {
@@ -2274,6 +2274,46 @@ select:focus-visible {
 .settings-inline button,
 .settings-panel select {
   padding: 6px 14px;
+}
+
+.settings-inline button.primary:not(:disabled) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* 校正プロンプト編集 */
+.settings-prompt-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.settings-prompt-textarea {
+  flex: 1;
+  min-height: 260px;
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, 'Consolas', 'Yu Gothic UI', monospace;
+  font-size: var(--fs-md);
+  line-height: 1.7;
+  outline: none;
+}
+
+.settings-prompt-textarea:focus {
+  border-color: var(--accent);
+}
+
+.settings-prompt-actions {
+  margin-top: 12px;
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 /* ============================================================

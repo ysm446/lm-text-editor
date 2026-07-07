@@ -65,6 +65,16 @@ export function CpuIcon({ size = 15 }: IconProps) {
   )
 }
 
+export function PromptIcon({ size = 14 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <line x1="7" y1="9" x2="15" y2="9" />
+      <line x1="7" y1="13" x2="12" y2="13" />
+    </svg>
+  )
+}
+
 export function EjectIcon({ size = 15 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

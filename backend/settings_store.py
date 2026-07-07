@@ -20,6 +20,8 @@ DEFAULTS: dict[str, Any] = {
     "writing_model_path": "",
     # llama-server のコンテキスト長（-c）。次回起動時から反映。大きいほど VRAM を使う
     "context_length": 16384,
+    # 校正のシステムプロンプト上書き（"" = 既定 prompts.REVIEW_SYSTEM を使う）
+    "review_system_prompt": "",
 }
 
 

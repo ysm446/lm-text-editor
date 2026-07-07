@@ -200,6 +200,7 @@ class SettingsUpdate(BaseModel):
     tavily_api_key: str | None = None
     writing_model_path: str | None = None
     context_length: int | None = None
+    review_system_prompt: str | None = None
 
 
 @app.get("/settings")
@@ -210,6 +211,12 @@ def get_settings() -> dict[str, Any]:
 @app.put("/settings")
 def update_settings(body: SettingsUpdate) -> dict[str, Any]:
     return settings_store.update(body.model_dump(exclude_none=True))
+
+
+@app.get("/prompts/defaults")
+def prompt_defaults() -> dict[str, str]:
+    """設定画面でプロンプトを編集するときの既定値（リセット用）。"""
+    return {"review_system": prompts.REVIEW_SYSTEM}
 
 
 @app.get("/workspaces")

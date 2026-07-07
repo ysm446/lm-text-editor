@@ -121,6 +121,7 @@ export interface AppSettings {
   tavily_api_key: string
   writing_model_path: string // 文章用 LLM（'' = 未設定）。検索・要約もこのモデルを使う
   context_length: number // llama-server の -c（次回起動時から反映）
+  review_system_prompt: string // 校正のシステムプロンプト上書き（'' = 既定）
 }
 
 export interface GpuStat {
@@ -279,6 +280,8 @@ export const api = {
 
   llamaEject: () =>
     request<{ status: string }>('/llama/eject', { method: 'POST' }),
+
+  promptDefaults: () => request<{ review_system: string }>('/prompts/defaults'),
 
   embedStatus: () => request<EmbedStatus>('/embed/status'),
 

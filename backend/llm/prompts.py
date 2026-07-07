@@ -1,7 +1,9 @@
 """LLM プロンプトのテンプレート。"""
 
+from backend import settings_store
 from backend.llm.client import Message
 
+# 校正のシステムプロンプトの既定値。設定 review_system_prompt が空ならこれを使う
 REVIEW_SYSTEM = (
     "あなたは技術ブログ記事の校正者です。"
     "与えられた「校正対象」の文章を、意味と事実関係を変えずに、"
@@ -12,6 +14,12 @@ REVIEW_SYSTEM = (
     "- 修正が不要な箇所は変更しない。\n"
     "- 前後の文脈は参考情報であり、出力に含めない。"
 )
+
+
+def review_system() -> str:
+    """設定で上書きされた校正システムプロンプト（空なら既定）。"""
+    override = (settings_store.read().get("review_system_prompt") or "").strip()
+    return override or REVIEW_SYSTEM
 
 
 CONTINUE_SYSTEM = (
@@ -80,6 +88,6 @@ def build_review_messages(
     if context_after:
         parts.append(f"## 後の文脈（参考）\n{context_after}")
     return [
-        {"role": "system", "content": REVIEW_SYSTEM},
+        {"role": "system", "content": review_system()},
         {"role": "user", "content": "\n\n".join(parts)},
     ]

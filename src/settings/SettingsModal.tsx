@@ -1,13 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, type AppSettings, type EmbedStatus, type LocalModel } from '../api/client'
-import { BookIcon, PencilIcon, SearchIcon, SunIcon } from '../icons'
+import { BookIcon, PencilIcon, PromptIcon, SearchIcon, SunIcon } from '../icons'
 
-type Category = 'appearance' | 'editor' | 'llm' | 'websearch'
+type Category = 'appearance' | 'editor' | 'llm' | 'prompts' | 'websearch'
 
 const CATEGORIES: { key: Category; label: string; icon: ReactNode }[] = [
   { key: 'appearance', label: '外観', icon: <SunIcon /> },
   { key: 'editor', label: 'エディタ', icon: <PencilIcon size={14} /> },
   { key: 'llm', label: 'LLM', icon: <BookIcon size={14} /> },
+  { key: 'prompts', label: 'プロンプト', icon: <PromptIcon size={14} /> },
   { key: 'websearch', label: 'Web 検索', icon: <SearchIcon /> },
 ]
 
@@ -39,10 +40,22 @@ export default function SettingsModal({
   const [tavilyDraft, setTavilyDraft] = useState(settings.tavily_api_key)
   const [models, setModels] = useState<LocalModel[]>([])
   const [embed, setEmbed] = useState<EmbedStatus | null>(null)
+  // 校正プロンプト: 既定値と編集中ドラフト（空設定のときは既定を表示して編集させる）
+  const [reviewDefault, setReviewDefault] = useState('')
+  const [reviewDraft, setReviewDraft] = useState(settings.review_system_prompt)
 
   useEffect(() => {
     void api.listLocalModels().then(setModels).catch(() => setModels([]))
     void api.embedStatus().then(setEmbed).catch(() => setEmbed(null))
+    void api
+      .promptDefaults()
+      .then((d) => {
+        setReviewDefault(d.review_system)
+        // 上書きが無ければ既定を編集の起点として表示する
+        if (!settings.review_system_prompt) setReviewDraft(d.review_system)
+      })
+      .catch(() => undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // インストール中は状態をポーリングして完了/失敗を反映する
@@ -206,6 +219,49 @@ export default function SettingsModal({
                   )}
                 </section>
               </>
+            )}
+            {active === 'prompts' && (
+              <section className="settings-prompt-section">
+                <h3>校正のシステムプロンプト</h3>
+                <p className="settings-desc">
+                  「選択範囲を校正」「全体を校正」で LLM に渡す指示。文体や残す/直す方針を
+                  変えられます。空にして保存すると既定に戻ります。
+                </p>
+                <textarea
+                  className="settings-prompt-textarea"
+                  value={reviewDraft}
+                  onChange={(e) => setReviewDraft(e.target.value)}
+                  spellCheck={false}
+                  placeholder={reviewDefault}
+                />
+                <div className="settings-inline settings-prompt-actions">
+                  <button
+                    className="ghost"
+                    disabled={reviewDraft.trim() === reviewDefault.trim()}
+                    onClick={() => {
+                      setReviewDraft(reviewDefault)
+                      onChange({ review_system_prompt: '' })
+                    }}
+                  >
+                    既定に戻す
+                  </button>
+                  <button
+                    className="primary"
+                    disabled={
+                      reviewDraft.trim() ===
+                      (settings.review_system_prompt.trim() || reviewDefault.trim())
+                    }
+                    onClick={() =>
+                      onChange({
+                        review_system_prompt:
+                          reviewDraft.trim() === reviewDefault.trim() ? '' : reviewDraft,
+                      })
+                    }
+                  >
+                    保存
+                  </button>
+                </div>
+              </section>
             )}
             {active === 'websearch' && (
               <section>
