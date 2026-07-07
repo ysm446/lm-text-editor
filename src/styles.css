@@ -626,14 +626,39 @@ select:focus-visible {
 /* ============================================================
    サイドバー
    ============================================================ */
-/* サイドバーは周辺クローム（グレー面）。本文の紙（白面）と対比させる */
-.sidebar {
-  width: 260px;
+/* サイドバーは周辺クローム（グレー面）。本文の紙（白面）と対比させる。
+   幅はラッパーの inline style（ドラッグで可変・localStorage に記憶） */
+.sidebar-wrap {
+  position: relative;
   flex-shrink: 0;
+  min-width: 0;
+}
+
+.sidebar {
+  width: 100%;
+  height: 100%;
   border-right: 1px solid var(--border);
   background: var(--bg);
   overflow-y: auto;
   padding: 16px 12px;
+}
+
+/* 右端のリサイズハンドル: 普段は透明、hover / ドラッグ中にアクセントの線を出す */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  touch-action: none; /* Pointer Events でドラッグするため既定ジェスチャを無効化 */
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer.dragging {
+  background: var(--accent);
+  opacity: 0.4;
 }
 
 .sidebar-section {

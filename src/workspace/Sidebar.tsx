@@ -1,6 +1,17 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { DocMeta, RagSource, Workspace, WorkspaceImage } from '../api/client'
 
+// サイドバー幅（ドラッグで可変・localStorage に記憶）
+const WIDTH_KEY = 'lm-sidebar-width'
+const WIDTH_MIN = 180
+const WIDTH_MAX = 520
+const WIDTH_DEFAULT = 260
+
+function initialWidth(): number {
+  const raw = Number(localStorage.getItem(WIDTH_KEY))
+  return Number.isFinite(raw) && raw >= WIDTH_MIN && raw <= WIDTH_MAX ? raw : WIDTH_DEFAULT
+}
+
 // ソースの表示名（URL はファイル名 / ホスト名に短縮）
 function sourceLabel(s: RagSource): string {
   if (!s.source_url) return `（${s.source_type}）`
@@ -219,6 +230,32 @@ export default function Sidebar({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [creating, setCreating] = useState<'workspace' | 'doc' | null>(null)
+  // 幅の可変（右端ハンドルのドラッグ）
+  const [width, setWidth] = useState(initialWidth)
+  const resize = useRef<{ startX: number; startWidth: number } | null>(null)
+  const [resizing, setResizing] = useState(false)
+
+  const onResizeDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    resize.current = { startX: e.clientX, startWidth: width }
+    setResizing(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = resize.current
+    if (!r) return
+    setWidth(Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, r.startWidth + e.clientX - r.startX)))
+  }
+
+  const onResizeUp = () => {
+    if (!resize.current) return
+    resize.current = null
+    setResizing(false)
+    setWidth((w) => {
+      localStorage.setItem(WIDTH_KEY, String(w))
+      return w
+    })
+  }
   // 選択とは別に開閉状態を持つ（選択中でも折りたためる）。選択が変わったら自動で開く
   const [expandedId, setExpandedId] = useState<number | null>(currentWorkspaceId)
   useEffect(() => {
@@ -348,6 +385,7 @@ export default function Sidebar({
   )
 
   return (
+    <div className="sidebar-wrap" style={{ width }}>
     <aside className="sidebar">
       <section className="sidebar-section">
         <SectionHead
@@ -391,5 +429,13 @@ export default function Sidebar({
         </ul>
       </section>
     </aside>
+    <div
+      className={`sidebar-resizer${resizing ? ' dragging' : ''}`}
+      onPointerDown={onResizeDown}
+      onPointerMove={onResizeMove}
+      onPointerUp={onResizeUp}
+      title="ドラッグで幅を変更"
+    />
+    </div>
   )
 }
