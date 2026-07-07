@@ -456,6 +456,14 @@ body {
   font-size: 0.95em;
 }
 
+/* 上部バー内のコントロールはフォーカス時の既定アウトライン（明るい枠）を出さない */
+.top-bar select:focus,
+.top-bar select:focus-visible,
+.top-bar button:focus,
+.top-bar button:focus-visible {
+  outline: none;
+}
+
 .model-bar-controls button {
   padding: 3px 14px;
   border-radius: 6px;

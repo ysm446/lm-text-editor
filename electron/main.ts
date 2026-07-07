@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
 
 // vite-plugin-electron が dev 時に設定する環境変数
@@ -6,15 +7,57 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
 let mainWindow: BrowserWindow | null = null
 
+// F12 スクリーンショット: ライブラリフォルダ直下の screenshot/ に保存
+async function saveScreenshot(win: BrowserWindow) {
+  try {
+    const image = await win.webContents.capturePage()
+    let dir: string
+    try {
+      // アクティブなライブラリのパスは backend が知っている
+      const res = await fetch('http://127.0.0.1:8000/library')
+      const data = (await res.json()) as { active: string }
+      dir = path.join(data.active, 'screenshot')
+    } catch {
+      // backend 未起動時は既定ライブラリ（repo/data）へ
+      dir = path.join(__dirname, '..', 'data', 'screenshot')
+    }
+    fs.mkdirSync(dir, { recursive: true })
+    const d = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const stamp =
+      `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
+      `-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+    const file = path.join(dir, `screenshot-${stamp}.png`)
+    fs.writeFileSync(file, image.toPNG())
+    new Notification({
+      title: 'スクリーンショットを保存しました',
+      body: file,
+    }).show()
+  } catch (err) {
+    new Notification({
+      title: 'スクリーンショットに失敗しました',
+      body: String(err),
+    }).show()
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: 1920,
+    height: 1080,
+    useContentSize: true, // コンテンツ領域を 1920x1080 にする（枠込みではなく）
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  })
+
+  // F12 でスクリーンショット
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12' && mainWindow) {
+      void saveScreenshot(mainWindow)
+    }
   })
 
   // 外部リンクは OS 既定のブラウザで開く（アプリ内で開かない）
