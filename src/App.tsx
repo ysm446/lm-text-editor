@@ -68,6 +68,23 @@ export default function App() {
     setSettings(next)
     applySettings(next)
   }, [])
+
+  // 起動時の取得に失敗していても、クリック時に再取得してから開く
+  const openSettings = useCallback(async () => {
+    if (settings == null) {
+      try {
+        const s = await api.getSettings()
+        setSettings(s)
+        applySettings(s)
+      } catch {
+        window.alert(
+          '設定 API に接続できません。backend が古いか停止しています。start.bat を再起動してください。',
+        )
+        return
+      }
+    }
+    setSettingsOpen(true)
+  }, [settings])
   const [statusBarVisible, setStatusBarVisible] = useState(
     () => window.localStorage.getItem('lm-editor.statusBar') !== 'off',
   )
@@ -282,9 +299,8 @@ export default function App() {
         </button>
         <button
           className="statusbar-toggle"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => void openSettings()}
           title="設定"
-          disabled={settings == null}
         >
           ⚙️
         </button>
