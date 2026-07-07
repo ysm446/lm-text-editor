@@ -84,6 +84,22 @@ export interface WebIngestResult {
   summary: string | null
 }
 
+export interface GpuStat {
+  name: string
+  gpu_percent: number
+  vram_used_gb: number
+  vram_total_gb: number
+  vram_percent: number
+}
+
+export interface SystemResources {
+  cpu_percent: number
+  ram_used_gb: number
+  ram_total_gb: number
+  ram_percent: number
+  gpus: GpuStat[]
+}
+
 export interface LocalModel {
   id: string
   path: string
@@ -216,6 +232,8 @@ export const api = {
 
   llamaEject: () =>
     request<{ status: string }>('/llama/eject', { method: 'POST' }),
+
+  systemResources: () => request<SystemResources>('/system/resources'),
 
   ornithStatus: () => request<LlamaStatus>('/ornith/status'),
 

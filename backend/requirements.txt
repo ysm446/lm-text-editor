@@ -5,3 +5,5 @@ sentence-transformers>=3
 sqlite-vec>=0.1
 trafilatura>=2
 ddgs
+psutil
+nvidia-ml-py

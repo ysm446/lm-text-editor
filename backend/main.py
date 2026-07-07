@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from backend import library, paths, router
+from backend import library, paths, router, system_stats
 from backend.db import models
 from backend.llm import client as llm_client
 from backend.llm import manager as llm_manager
@@ -157,6 +157,11 @@ class AssetCreate(BaseModel):
 @app.get("/health")
 def health() -> dict[str, bool]:
     return {"ok": True}
+
+
+@app.get("/system/resources")
+def system_resources() -> dict[str, Any]:
+    return system_stats.get_resources()
 
 
 @app.get("/workspaces")

@@ -326,6 +326,75 @@ body {
   white-space: nowrap;
 }
 
+/* 下部ステータスバー（リソースモニター） */
+.statusbar-toggle {
+  margin-left: 8px;
+  border: 1px solid transparent;
+  background: none;
+  color: #e6edf3;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.statusbar-toggle:hover {
+  background: #3d444d;
+}
+
+.statusbar-toggle.active {
+  background: #2a3139;
+  border-color: #3d444d;
+}
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 4px 16px;
+  background: #1f2328;
+  color: #e6edf3;
+  font-size: 0.75em;
+  flex-shrink: 0;
+  border-top: 1px solid #3d444d;
+}
+
+.statusbar-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statusbar-meter-label {
+  color: #9198a1;
+  width: 34px;
+  text-align: right;
+}
+
+.statusbar-meter-track {
+  width: 72px;
+  height: 6px;
+  border-radius: 3px;
+  background: #2a3139;
+  overflow: hidden;
+}
+
+.statusbar-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.statusbar-meter-value {
+  min-width: 84px;
+  color: #c9d1d9;
+}
+
+.statusbar-dim {
+  color: #6e7781;
+}
+
 /* モデルバー */
 .model-bar {
   display: flex;

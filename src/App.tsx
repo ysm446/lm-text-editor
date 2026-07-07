@@ -4,6 +4,7 @@ import Editor from './editor/Editor'
 import ModelBar from './ModelBar'
 import LibrarySwitcher from './LibrarySwitcher'
 import WebSearchPanel from './panels/WebSearchPanel'
+import StatusBar from './StatusBar'
 import { api, type Doc, type DocMeta, type Workspace } from './api/client'
 
 export default function App() {
@@ -14,6 +15,16 @@ export default function App() {
   const [titleDraft, setTitleDraft] = useState('')
   const [backendError, setBackendError] = useState<string | null>(null)
   const [webSearchOpen, setWebSearchOpen] = useState(false)
+  const [statusBarVisible, setStatusBarVisible] = useState(
+    () => window.localStorage.getItem('lm-editor.statusBar') !== 'off',
+  )
+
+  const toggleStatusBar = () => {
+    setStatusBarVisible((v) => {
+      window.localStorage.setItem('lm-editor.statusBar', v ? 'off' : 'on')
+      return !v
+    })
+  }
 
   const refreshWorkspaces = useCallback(async () => {
     try {
@@ -155,6 +166,13 @@ export default function App() {
           🔍 Web 検索
         </button>
         <ModelBar />
+        <button
+          className={`statusbar-toggle${statusBarVisible ? ' active' : ''}`}
+          onClick={toggleStatusBar}
+          title={statusBarVisible ? 'リソースモニターを隠す' : 'リソースモニターを表示'}
+        >
+          📊
+        </button>
       </div>
       {webSearchOpen && (
         <WebSearchPanel
@@ -214,6 +232,7 @@ export default function App() {
         )}
         </main>
       </div>
+      {statusBarVisible && <StatusBar />}
     </div>
   )
 }

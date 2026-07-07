@@ -1,7 +1,7 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-07 09:30
+更新日時: 2026-07-07 09:56
 
 ## 現在の状態
 
@@ -94,6 +94,8 @@
   - 取り込み: httpx + trafilatura（favor_precision）→ 原文チャンク（rag_chunk, web）+ ornith 要約のソースノート（note_fts / note_vec で hybrid 検索対応、/rag/search の notes に統合）。
   - UI: 上部バー「🔍 Web 検索」モーダル（検索 → 取り込む → 要約表示。取り込み先は現在のワークスペース）。
   - 検証（一時ライブラリ・インプロセス）: ornith 実ロード → 日本語依頼を英語 3 クエリに分解 → ddgs 8 件 → GitHub ページ取り込み（3 チャンク + 高品質な日本語要約ノート）→ ノート/チャンク検索ヒットまで確認。
+
+- 2026-07-07 UX 改善（ユーザー要望）: Web 検索の URL 直接指定、結果リンクの外部ブラウザ起動（shell.openExternal）、ファイルドロップの誤ナビゲーション防止、下部リソースモニター（lm-chat / news-picker の system_stats 移植。📊 で表示切替、localStorage に記憶）。
 
 ## 未完了（次にやること）
 
