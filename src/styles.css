@@ -335,6 +335,67 @@ body {
   cursor: pointer;
 }
 
+/* 書式ツールバー */
+.format-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 6px;
+  flex-wrap: wrap;
+}
+
+.format-btn {
+  min-width: 30px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: #1f2328;
+}
+
+.format-btn:hover {
+  background: #f0f1f3;
+}
+
+.format-btn.active {
+  background: #dbe9fb;
+  border-color: #8cb4e8;
+}
+
+.format-btn.fmt-bold {
+  font-weight: 700;
+}
+
+.format-btn.fmt-italic {
+  font-style: italic;
+}
+
+.format-btn.fmt-underline {
+  text-decoration: underline;
+}
+
+.format-btn.fmt-strike {
+  text-decoration: line-through;
+}
+
+.format-sep {
+  width: 1px;
+  height: 18px;
+  background: #d1d9e0;
+  margin: 0 6px;
+}
+
+.format-link-input {
+  padding: 4px 10px;
+  border: 1px solid #8cb4e8;
+  border-radius: 6px;
+  font-size: 0.85em;
+  outline: none;
+  width: 280px;
+}
+
 /* 校正ツールバー / インライン diff */
 .editor-toolbar {
   display: flex;
@@ -979,4 +1040,15 @@ body {
 
 .tiptap-root .ProseMirror img {
   max-width: 100%;
+}
+
+.tiptap-root .ProseMirror a {
+  color: #0969da;
+  text-decoration: underline;
+}
+
+.tiptap-root .ProseMirror hr {
+  border: none;
+  border-top: 2px solid #d1d9e0;
+  margin: 24px 0;
 }

@@ -12,6 +12,7 @@ import SplitReview, {
 } from '../review/SplitReview'
 import RevisionPanel from '../review/RevisionPanel'
 import AssistPanel, { type AssistState } from '../panels/AssistPanel'
+import FormatToolbar from './toolbar/FormatToolbar'
 
 const DRAFT_DEBOUNCE_MS = 1500
 const REVIEW_CONTEXT_CHARS = 500
@@ -450,6 +451,7 @@ export default function Editor({
 
   return (
     <div className="editor-root">
+      <FormatToolbar editor={editor} />
       <div className="editor-toolbar">
         <button
           disabled={selectionEmpty || review?.status === 'streaming'}
