@@ -504,6 +504,8 @@ export default function Editor({
 
   return (
     <div className="editor-root">
+      {/* スクロールしてもツールバーは上部に固定表示する */}
+      <div className="editor-toolbars">
       <FormatToolbar editor={editor} />
       <div className="editor-toolbar">
         <button
@@ -554,6 +556,7 @@ export default function Editor({
         >
           {saving ? '保存中…' : '保存'}
         </button>
+      </div>
       </div>
       {draftBanner && (
         <div className="draft-banner">

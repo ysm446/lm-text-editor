@@ -1997,3 +1997,13 @@ body {
   background: var(--selected);
   border-color: var(--accent-border);
 }
+
+/* スクロールしてもツールバーを上部に固定 */
+.editor-toolbars {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  padding-top: 6px;
+  box-shadow: 0 6px 8px -8px var(--shadow-color);
+}
