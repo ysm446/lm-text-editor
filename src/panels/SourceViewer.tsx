@@ -40,8 +40,7 @@ export default function SourceViewer({
   const isHttp = source.source_url?.startsWith('http')
 
   return (
-    <div className="split-review-overlay">
-      <div className="source-viewer">
+    <div className="source-viewer">
         <div className="source-viewer-header">
           <span className="source-viewer-title">
             {TYPE_LABEL[source.source_type] ?? source.source_type}:{' '}
@@ -87,7 +86,6 @@ export default function SourceViewer({
             </>
           )}
         </div>
-      </div>
     </div>
   )
 }

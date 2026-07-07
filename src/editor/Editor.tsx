@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, type Editor as TipTapEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -28,6 +29,8 @@ interface EditorProps {
   onSaved: (docId: number) => void
   onImageUploaded?: () => void // ペースト/ドロップで画像を保存した後の通知
   registerImageInserter?: (fn: (url: string) => void) => void // サイドバーからの挿入用
+  assistOpen: boolean // 右ペイン（執筆支援）の開閉は App が管理
+  onToggleAssist: () => void
 }
 
 interface ReviewState {
@@ -94,6 +97,8 @@ export default function Editor({
   onSaved,
   onImageUploaded,
   registerImageInserter,
+  assistOpen,
+  onToggleAssist,
 }: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
   const draftTimer = useRef<number | null>(null)
@@ -108,9 +113,17 @@ export default function Editor({
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyMd, setHistoryMd] = useState('')
   const [review, setReview] = useState<ReviewState | null>(null)
-  const [assistOpen, setAssistOpen] = useState(false)
   const [assist, setAssist] = useState<AssistState | null>(null)
   const assistInsertPos = useRef<number | null>(null)
+  // 右ペイン（App 側の DOM）へ portal で描画する
+  const [assistPaneEl, setAssistPaneEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setAssistPaneEl(document.getElementById('assist-pane-root'))
+  }, [])
+  // ペインが閉じられたら生成状態もリセット
+  useEffect(() => {
+    if (!assistOpen) setAssist(null)
+  }, [assistOpen])
   const [splitReview, setSplitReview] = useState<SplitReviewState | null>(null)
 
   const getMarkdown = () =>
@@ -476,7 +489,7 @@ export default function Editor({
     // tiptap-markdown により Markdown 文字列はパースされて挿入される
     editorRef.current?.chain().focus().insertContentAt(pos, assist.output).run()
     setAssist(null)
-    setAssistOpen(false)
+    onToggleAssist() // 挿入後はペインを閉じる
   }
 
   const acceptReview = () => {
@@ -511,11 +524,9 @@ export default function Editor({
           文書全体を校正
         </button>
         <button
-          onClick={() => {
-            setAssistOpen((v) => !v)
-            if (assistOpen) setAssist(null)
-          }}
-          title="続き生成・セクション生成"
+          className={assistOpen ? 'active-toggle' : ''}
+          onClick={onToggleAssist}
+          title="続き生成・セクション生成（右ペインに表示）"
         >
           執筆支援
         </button>
@@ -582,18 +593,18 @@ export default function Editor({
           onClose={() => setSplitReview(null)}
         />
       )}
-      {assistOpen && (
-        <AssistPanel
-          assist={assist}
-          onContinue={assistContinue}
-          onGenerateSection={assistSection}
-          onInsert={assistInsert}
-          onClose={() => {
-            setAssist(null)
-            setAssistOpen(false)
-          }}
-        />
-      )}
+      {assistOpen &&
+        assistPaneEl &&
+        createPortal(
+          <AssistPanel
+            assist={assist}
+            onContinue={assistContinue}
+            onGenerateSection={assistSection}
+            onInsert={assistInsert}
+            onClose={onToggleAssist}
+          />,
+          assistPaneEl,
+        )}
       {review && (
         <InlineDiff
           original={review.original}

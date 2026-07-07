@@ -42,6 +42,11 @@ export default function App() {
   const [sources, setSources] = useState<RagSource[]>([])
   const [viewingSource, setViewingSource] = useState<RagSource | null>(null)
   const [viewingImage, setViewingImage] = useState<WorkspaceImage | null>(null)
+  const [assistPaneOpen, setAssistPaneOpen] = useState(false)
+  // 閉じるアニメーション中も内容を保持しておく（スライドアウトが空にならないように）
+  const lastSource = useRef<RagSource | null>(null)
+  if (viewingSource) lastSource.current = viewingSource
+  const paneSource = viewingSource ?? lastSource.current
   const [images, setImages] = useState<WorkspaceImage[]>([])
   const imageInserter = useRef<((url: string) => void) | null>(null)
 
@@ -346,13 +351,6 @@ export default function App() {
           onClose={() => setViewingImage(null)}
         />
       )}
-      {viewingSource && currentWsId != null && (
-        <SourceViewer
-          workspaceId={currentWsId}
-          source={viewingSource}
-          onClose={() => setViewingSource(null)}
-        />
-      )}
       {settingsOpen && settings && (
         <SettingsModal
           settings={settings}
@@ -394,45 +392,72 @@ export default function App() {
         onDeleteImage={(img) => void deleteImage(img)}
       />
       <main className="editor-area">
-        {backendError && (
-          <div className="backend-banner">
-            {backendError}
-            <button onClick={() => void refreshWorkspaces()}>再接続</button>
+        <div className="workbench">
+          {/* 左ペイン: 資料（サイドバーの資料クリックでスライドイン） */}
+          <aside className={`pane pane-left${viewingSource ? ' open' : ''}`}>
+            <div className="pane-inner">
+              {paneSource && currentWsId != null && (
+                <SourceViewer
+                  workspaceId={currentWsId}
+                  source={paneSource}
+                  onClose={() => setViewingSource(null)}
+                />
+              )}
+            </div>
+          </aside>
+
+          {/* 中央: 編集中の文章 */}
+          <div className="doc-stage">
+            {backendError && (
+              <div className="backend-banner">
+                {backendError}
+                <button onClick={() => void refreshWorkspaces()}>再接続</button>
+              </div>
+            )}
+            {currentDoc ? (
+              <div className="doc-view">
+                <input
+                  className="doc-title"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={() => void saveTitle()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                  }}
+                  placeholder="タイトル"
+                />
+                <Editor
+                  key={currentDoc.id}
+                  docId={currentDoc.id}
+                  initialContent={currentDoc.content_json}
+                  draft={currentDoc.draft_json}
+                  draftSavedAt={currentDoc.draft_saved_at}
+                  onSaved={handleSaved}
+                  onImageUploaded={() => void refreshWorkspaceAssets(currentWsId)}
+                  registerImageInserter={(fn) => {
+                    imageInserter.current = fn
+                  }}
+                  assistOpen={assistPaneOpen}
+                  onToggleAssist={() => setAssistPaneOpen((v) => !v)}
+                />
+              </div>
+            ) : (
+              <div className="placeholder">
+                {workspaces.length === 0
+                  ? 'サイドバーからワークスペースを作成してください。'
+                  : 'ドキュメントを選択または作成してください。'}
+              </div>
+            )}
           </div>
-        )}
-        {currentDoc ? (
-          <div className="doc-view">
-            <input
-              className="doc-title"
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={() => void saveTitle()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-              }}
-              placeholder="タイトル"
-            />
-            <Editor
-              key={currentDoc.id}
-              docId={currentDoc.id}
-              initialContent={currentDoc.content_json}
-              draft={currentDoc.draft_json}
-              draftSavedAt={currentDoc.draft_saved_at}
-              onSaved={handleSaved}
-              onImageUploaded={() => void refreshWorkspaceAssets(currentWsId)}
-              registerImageInserter={(fn) => {
-                imageInserter.current = fn
-              }}
-            />
-          </div>
-        ) : (
-          <div className="placeholder">
-            {workspaces.length === 0
-              ? 'サイドバーからワークスペースを作成してください。'
-              : 'ドキュメントを選択または作成してください。'}
-          </div>
-        )}
-        </main>
+
+          {/* 右ペイン: 執筆支援（Editor が portal で描画する） */}
+          <aside
+            className={`pane pane-right${assistPaneOpen && currentDoc ? ' open' : ''}`}
+          >
+            <div className="pane-inner" id="assist-pane-root" />
+          </aside>
+        </div>
+      </main>
       </div>
       {statusBarVisible && <StatusBar />}
       <ToastHost />
