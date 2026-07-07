@@ -21,8 +21,8 @@ if not exist "node_modules" (
     exit /b 1
 )
 
-echo Starting backend (close its window to stop it)...
-start "lm-text-editor backend" cmd /k ".venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000"
+echo Starting backend (it exits automatically when the app window is closed)...
+start "lm-text-editor backend" cmd /c ".venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000"
 
 echo Starting Vite + Electron...
 call npm run dev

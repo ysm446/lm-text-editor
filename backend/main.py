@@ -7,6 +7,7 @@ import asyncio
 import base64
 import binascii
 import json
+import os
 import shutil
 import threading
 import uuid
@@ -162,6 +163,25 @@ def health() -> dict[str, bool]:
 @app.get("/system/resources")
 def system_resources() -> dict[str, Any]:
     return system_stats.get_resources()
+
+
+@app.post("/shutdown")
+def shutdown() -> dict[str, bool]:
+    """アプリ終了時に Electron から呼ばれる。
+
+    追跡中の llama-server（gemma / ornith）を停止してから自身も終了する。
+    外部起動（bat 等）の llama-server は殺さない。
+    """
+
+    def _exit() -> None:
+        try:
+            llm_manager.stop("gemma")
+            llm_manager.stop("ornith")
+        finally:
+            os._exit(0)
+
+    threading.Timer(0.2, _exit).start()  # レスポンスを返してから終了する
+    return {"ok": True}
 
 
 class SettingsUpdate(BaseModel):

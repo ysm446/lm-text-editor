@@ -136,9 +136,25 @@ app.whenReady().then(() => {
   createWindow()
 })
 
+// アプリを閉じたら backend（と追跡中の llama-server）も終了させる
+let shuttingDown = false
+async function shutdownBackendAndQuit() {
+  if (shuttingDown) return
+  shuttingDown = true
+  try {
+    await Promise.race([
+      fetch('http://127.0.0.1:8000/shutdown', { method: 'POST' }),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ])
+  } catch {
+    // backend が既に落ちていれば何もしない
+  }
+  app.quit()
+}
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit()
+    void shutdownBackendAndQuit()
   }
 })
 
