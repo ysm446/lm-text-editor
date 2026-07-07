@@ -1,4 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  Notification,
+  shell,
+} from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -58,6 +66,22 @@ function createWindow() {
     if (input.type === 'keyDown' && input.key === 'F12' && mainWindow) {
       void saveScreenshot(mainWindow)
     }
+  })
+
+  // 右クリックでコピー / 貼り付けなどの編集メニューを出す
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const menu = Menu.buildFromTemplate([
+      { role: 'cut', label: '切り取り', enabled: params.editFlags.canCut },
+      { role: 'copy', label: 'コピー', enabled: params.editFlags.canCopy },
+      { role: 'paste', label: '貼り付け', enabled: params.editFlags.canPaste },
+      { type: 'separator' },
+      {
+        role: 'selectAll',
+        label: 'すべて選択',
+        enabled: params.editFlags.canSelectAll,
+      },
+    ])
+    menu.popup()
   })
 
   // 外部リンクは OS 既定のブラウザで開く（アプリ内で開かない）

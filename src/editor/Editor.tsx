@@ -97,6 +97,8 @@ export default function Editor({
   const editorRef = useRef<TipTapEditor | null>(null)
   const draftTimer = useRef<number | null>(null)
   const pendingDraft = useRef<unknown | null>(null)
+  const savedContent = useRef<string>('') // 最後に保存した内容（正規化 JSON 文字列）
+  const wasDirty = useRef(false)
   const [selectionEmpty, setSelectionEmpty] = useState(true)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -121,6 +123,20 @@ export default function Editor({
     }
   }
 
+  // 保存時点との実差分で未保存判定する（編集して元に戻したらマークは消える）
+  const updateDirty = (ed: TipTapEditor): boolean => {
+    const isDirty = JSON.stringify(ed.getJSON()) !== savedContent.current
+    setDirty(isDirty)
+    if (!isDirty && wasDirty.current) {
+      // 元に戻った: ドラフト退避も取り消す
+      if (draftTimer.current) window.clearTimeout(draftTimer.current)
+      pendingDraft.current = null
+      void api.clearDraft(docId).catch(() => undefined)
+    }
+    wasDirty.current = isDirty
+    return isDirty
+  }
+
   // 明示保存: 本文更新 + リビジョン追加 + ドラフトクリア
   const save = async () => {
     const ed = editorRef.current
@@ -128,12 +144,15 @@ export default function Editor({
     setSaving(true)
     setSaveError(null)
     try {
+      const contentJson = ed.getJSON()
       await api.saveDoc(docId, {
-        content_json: ed.getJSON(),
+        content_json: contentJson,
         content_md: getMarkdown(),
       })
       if (draftTimer.current) window.clearTimeout(draftTimer.current)
       pendingDraft.current = null
+      savedContent.current = JSON.stringify(contentJson)
+      wasDirty.current = false
       setDirty(false)
       setDraftBanner(false)
       onSaved(docId)
@@ -159,10 +178,11 @@ export default function Editor({
   }, [])
 
   const restoreDraft = () => {
-    if (draft != null) {
+    const ed = editorRef.current
+    if (draft != null && ed) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      editorRef.current?.commands.setContent(draft as any)
-      setDirty(true)
+      ed.commands.setContent(draft as any)
+      updateDirty(ed)
     }
     setDraftBanner(false)
   }
@@ -217,8 +237,13 @@ export default function Editor({
         return true
       },
     },
+    onCreate({ editor }) {
+      // DB の JSON とエディタの正規化後 JSON の差異で誤検知しないよう、
+      // ロード直後のエディタ状態を「保存済み」の基準にする
+      savedContent.current = JSON.stringify(editor.getJSON())
+    },
     onUpdate({ editor }) {
-      setDirty(true)
+      if (!updateDirty(editor)) return
       // ドラフト退避（クラッシュ対策）。正式な保存は保存ボタン / Ctrl+S のみ
       pendingDraft.current = editor.getJSON()
       if (draftTimer.current) window.clearTimeout(draftTimer.current)
@@ -537,9 +562,11 @@ export default function Editor({
           docId={docId}
           currentMd={historyMd}
           onLoadRevision={(json) => {
+            const ed = editorRef.current
+            if (!ed) return
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            editorRef.current?.commands.setContent(json as any)
-            setDirty(true)
+            ed.commands.setContent(json as any)
+            updateDirty(ed)
           }}
           onClose={() => setHistoryOpen(false)}
         />
