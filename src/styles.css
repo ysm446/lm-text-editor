@@ -13,36 +13,36 @@
   --fs-ui: 13px;     /* 標準 UI（ボタン・サイドバー・入力） */
   --fs-md: 14px;     /* パネル本文・diff 本文 */
 
-  /* --- 上下バー（テーマ非依存のダーク / VS Code 方式） --- */
-  --bar-bg: #1f2328;
-  --bar-surface: #2a3139;
-  --bar-hover: #3d444d;
-  --bar-border: #3d444d;
-  --bar-text: #e6edf3;
-  --bar-muted: #9198a1;
-  --bar-faint: #6e7781;
-  --bar-danger: #ff9492;
-  --bar-ok: #3fb950;
-  --bar-warn: #d29922;
+  /* --- 上下バー（テーマ非依存のダーク / VS Code 方式・Obsidian 調） --- */
+  --bar-bg: #161616;
+  --bar-surface: #262626;
+  --bar-hover: #363636;
+  --bar-border: #333333;
+  --bar-text: #dadada;
+  --bar-muted: #999999;
+  --bar-faint: #666666;
+  --bar-danger: #fb7a7e;
+  --bar-ok: #44cf6e;
+  --bar-warn: #e0ac00;
 
-  /* --- ライトテーマ --- */
+  /* --- ライトテーマ（アクセントはダークと同系の紫） --- */
   color-scheme: light;
-  --bg: #f2f4f7;                /* 周辺クローム（サイドバー等） */
+  --bg: #f2f3f5;                /* 周辺クローム（サイドバー等） */
   --surface: #ffffff;           /* 紙・カード・パネル面 */
-  --text: #1f2328;
-  --border: #d9dee4;
-  --hover: rgba(31, 35, 40, 0.06);
-  --muted: #59636e;
-  --faint: #9aa2ab;
-  --accent: #0969da;            /* アクセントは青 1 色（操作・選択・リンク） */
+  --text: #222222;
+  --border: #dcdde0;
+  --hover: rgba(0, 0, 0, 0.06);
+  --muted: #5c5c5c;
+  --faint: #9e9e9e;
+  --accent: #6c5cd8;            /* アクセントは紫 1 色（操作・選択・リンク） */
   --accent-text: #ffffff;
-  --selected: rgba(9, 105, 218, 0.1);
-  --accent-border: #8cb4e8;
+  --selected: rgba(108, 92, 216, 0.11);
+  --accent-border: #b5aaf0;
   --link: var(--accent);
   --primary: var(--accent);     /* 主ボタン = アクセント */
   --ok: #1a7f37;                /* 成功・稼働中 */
   --ok-bg: #f2fbf4;
-  --warn: #d4a72c;
+  --warn: #b58a00;
   --warn-bg: #fff8c5;
   --del-bg: #ffdce0;
   --del-text: #82071e;
@@ -50,37 +50,38 @@
   --ins-text: #055d20;
   --danger: #d1242f;
   --danger-bg: #ffebe9;
-  --panel-accent-bg: #f0f6ff;
-  --overlay: rgba(31, 35, 40, 0.45);
-  --shadow-color: rgba(31, 35, 40, 0.15);
-  --shadow-1: 0 1px 2px rgba(31, 35, 40, 0.06), 0 4px 16px rgba(31, 35, 40, 0.05);
+  --panel-accent-bg: #f3f1fd;
+  --overlay: rgba(0, 0, 0, 0.45);
+  --shadow-color: rgba(0, 0, 0, 0.15);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.05);
   --shadow-2: 0 8px 24px var(--shadow-color);
 }
 
+/* ダークテーマ（基準）: Obsidian のデフォルトダークに寄せた配色 */
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #14181d;
-  --surface: #1a1f26;
-  --text: #e2e8ee;
-  --border: #2c333b;
-  --hover: rgba(226, 232, 238, 0.07);
-  --muted: #98a1ab;
-  --faint: #6b7480;
-  --accent: #4493f8;
+  --bg: #191919;                /* サイドバー・クローム */
+  --surface: #1e1e1e;           /* 紙（本文エリア） */
+  --text: #dadada;
+  --border: #333333;
+  --hover: rgba(255, 255, 255, 0.055);
+  --muted: #999999;
+  --faint: #666666;
+  --accent: #7f6df2;            /* Obsidian 紫 */
   --accent-text: #ffffff;
-  --selected: rgba(68, 147, 248, 0.16);
-  --accent-border: #2f6db4;
-  --ok: #3fb950;
-  --ok-bg: #12351f;
-  --warn: #9e6a03;
-  --warn-bg: #332b12;
-  --del-bg: #4a161c;
-  --del-text: #ff9492;
-  --ins-bg: #12421f;
-  --ins-text: #7ee787;
-  --danger: #ff7b72;
-  --danger-bg: #3c1618;
-  --panel-accent-bg: #121d2f;
+  --selected: rgba(255, 255, 255, 0.09); /* 選択はニュートラルなグレー（Obsidian 流） */
+  --accent-border: rgba(127, 109, 242, 0.5);
+  --ok: #44cf6e;
+  --ok-bg: rgba(68, 207, 110, 0.12);
+  --warn: #e0ac00;
+  --warn-bg: rgba(224, 172, 0, 0.12);
+  --del-bg: rgba(251, 70, 76, 0.22);
+  --del-text: #ff9b9b;
+  --ins-bg: rgba(68, 207, 110, 0.2);
+  --ins-text: #7be098;
+  --danger: #fb464c;
+  --danger-bg: rgba(251, 70, 76, 0.14);
+  --panel-accent-bg: rgba(127, 109, 242, 0.09);
   --overlay: rgba(0, 0, 0, 0.55);
   --shadow-color: rgba(0, 0, 0, 0.5);
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
@@ -261,12 +262,13 @@ select:focus-visible {
   background: var(--hover);
 }
 
+/* 選択中はニュートラルなハイライト + 太字（Obsidian 流。色では主張しない） */
 .sidebar .item.selected,
 .settings-nav button.active,
 .library-menu-item.active,
 .revision-item.selected {
   background: var(--selected);
-  color: var(--accent);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -1740,11 +1742,11 @@ select:focus-visible {
 }
 
 .settings-theme-swatch.theme-light {
-  background: linear-gradient(135deg, #ffffff 50%, #f2f4f7 50%);
+  background: linear-gradient(135deg, #ffffff 50%, #f2f3f5 50%);
 }
 
 .settings-theme-swatch.theme-dark {
-  background: linear-gradient(135deg, #1a1f26 50%, #14181d 50%);
+  background: linear-gradient(135deg, #1e1e1e 50%, #191919 50%);
 }
 
 .settings-inline {
