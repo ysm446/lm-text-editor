@@ -18,20 +18,14 @@ export interface ChatState {
 
 interface ChatPanelProps {
   chat: ChatState
-  canReplace: boolean // 本文に選択範囲があるか（「選択範囲を置換」の可否）
   onSend: (text: string, useRag: boolean) => void
-  onInsert: (text: string) => void
-  onReplace: (text: string) => void
   onClear: () => void
   onClose: () => void
 }
 
 export default function ChatPanel({
   chat,
-  canReplace,
   onSend,
-  onInsert,
-  onReplace,
   onClear,
   onClose,
 }: ChatPanelProps) {
@@ -86,20 +80,6 @@ export default function ChatPanel({
                 </div>
               ) : (
                 <div className="chat-msg-body">{m.content}</div>
-              )}
-              {m.role === 'assistant' && m.content.trim() && !streamingThis && (
-                <div className="chat-msg-actions">
-                  <button onClick={() => onInsert(m.content)} title="カーソル位置に挿入">
-                    挿入
-                  </button>
-                  <button
-                    disabled={!canReplace}
-                    onClick={() => onReplace(m.content)}
-                    title={canReplace ? '選択範囲を置換' : '本文で置換したい範囲を選択してください'}
-                  >
-                    置換
-                  </button>
-                </div>
               )}
             </div>
           )

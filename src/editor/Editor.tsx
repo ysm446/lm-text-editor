@@ -555,20 +555,6 @@ export default function Editor({
     }
   }
 
-  // チャットの提案を本文へ（Markdown はパースされて挿入される）
-  const chatInsert = (text: string) => {
-    const pos = editorRef.current?.state.selection.head ?? 0
-    editorRef.current?.chain().focus().insertContentAt(pos, text).run()
-  }
-
-  const chatReplace = (text: string) => {
-    const ed = editorRef.current
-    if (!ed) return
-    const { from, to } = ed.state.selection
-    if (from === to) return
-    ed.chain().focus().insertContentAt({ from, to }, text).run()
-  }
-
   const chatClear = () =>
     setChat({ messages: [], streaming: false, error: null })
 
@@ -718,10 +704,7 @@ export default function Editor({
         createPortal(
           <ChatPanel
             chat={chat}
-            canReplace={!selectionEmpty}
             onSend={(text, useRag) => void sendChat(text, useRag)}
-            onInsert={chatInsert}
-            onReplace={chatReplace}
             onClear={chatClear}
             onClose={() => onSetRightTab(null)}
           />,

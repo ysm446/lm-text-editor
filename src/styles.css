@@ -1968,16 +1968,6 @@ select:focus-visible {
   margin-left: 1px;
 }
 
-.chat-msg-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.chat-msg-actions button {
-  font-size: var(--fs-sm);
-  padding: 2px 10px;
-}
-
 .chat-panel-input {
   border-top: 1px solid var(--border);
   padding: 10px 12px;
