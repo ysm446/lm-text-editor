@@ -174,7 +174,7 @@ interface SidebarProps {
   onAddSourceFiles: (files: FileList) => void
   onViewSource: (source: RagSource) => void
   onDeleteSource: (source: RagSource) => void
-  onInsertImage: (image: WorkspaceImage) => void
+  onViewImage: (image: WorkspaceImage) => void
   onDeleteImage: (image: WorkspaceImage) => void
 }
 
@@ -196,7 +196,7 @@ export default function Sidebar({
   onAddSourceFiles,
   onViewSource,
   onDeleteSource,
-  onInsertImage,
+  onViewImage,
   onDeleteImage,
 }: SidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -279,8 +279,8 @@ export default function Sidebar({
                 <img
                   className="image-thumb"
                   src={img.url}
-                  title={`${img.rel_path}\nクリックでカーソル位置に挿入`}
-                  onClick={() => onInsertImage(img)}
+                  title={`${img.rel_path}\nクリックで拡大表示`}
+                  onClick={() => onViewImage(img)}
                 />
                 <button
                   className="image-thumb-delete"

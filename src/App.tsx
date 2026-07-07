@@ -5,6 +5,7 @@ import ModelBar from './ModelBar'
 import LibrarySwitcher from './LibrarySwitcher'
 import WebSearchPanel from './panels/WebSearchPanel'
 import SourceViewer from './panels/SourceViewer'
+import ImageLightbox from './panels/ImageLightbox'
 import StatusBar from './StatusBar'
 import SettingsModal from './settings/SettingsModal'
 import { ChartIcon, GearIcon, SearchIcon } from './icons'
@@ -39,6 +40,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [sources, setSources] = useState<RagSource[]>([])
   const [viewingSource, setViewingSource] = useState<RagSource | null>(null)
+  const [viewingImage, setViewingImage] = useState<WorkspaceImage | null>(null)
   const [images, setImages] = useState<WorkspaceImage[]>([])
   const imageInserter = useRef<((url: string) => void) | null>(null)
 
@@ -308,6 +310,17 @@ export default function App() {
           <GearIcon />
         </button>
       </div>
+      {viewingImage && (
+        <ImageLightbox
+          image={viewingImage}
+          canInsert={currentDoc != null}
+          onInsert={() => insertImage(viewingImage)}
+          onDelete={() => {
+            void deleteImage(viewingImage).then(() => setViewingImage(null))
+          }}
+          onClose={() => setViewingImage(null)}
+        />
+      )}
       {viewingSource && currentWsId != null && (
         <SourceViewer
           workspaceId={currentWsId}
@@ -350,7 +363,7 @@ export default function App() {
         onAddSourceFiles={(files) => void addSourceFiles(files)}
         onViewSource={setViewingSource}
         onDeleteSource={(s) => void deleteSource(s)}
-        onInsertImage={insertImage}
+        onViewImage={setViewingImage}
         onDeleteImage={(img) => void deleteImage(img)}
       />
       <main className="editor-area">

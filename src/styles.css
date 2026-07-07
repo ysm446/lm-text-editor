@@ -1780,3 +1780,76 @@ body {
   line-height: 1.7;
   font-size: 0.92em;
 }
+
+/* 画像ライトボックス */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+.lightbox {
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - 96px);
+  max-height: calc(100vh - 96px);
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: calc(100vh - 180px);
+  object-fit: contain;
+  background: var(--bg);
+}
+
+.lightbox-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+}
+
+.lightbox-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85em;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lightbox-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.lightbox-actions button {
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.lightbox-actions button.primary:not(:disabled) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.lightbox-actions button.primary:disabled {
+  color: var(--faint);
+}
+
+.lightbox-actions button.danger {
+  color: var(--danger);
+}
