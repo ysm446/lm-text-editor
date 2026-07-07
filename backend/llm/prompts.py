@@ -73,6 +73,41 @@ def build_section_messages(
     ]
 
 
+CHAT_SYSTEM = (
+    "あなたは技術ブログ記事の執筆パートナーです。"
+    "ユーザーが編集中の記事について、相談・レビュー・書き換え提案に対話形式で応じます。\n"
+    "ルール:\n"
+    "- 日本語で、要点から簡潔に答える。\n"
+    "- レビュー依頼には具体的に指摘する（どこが・なぜ・どう直すか）。\n"
+    "- 書き換え案を出すときは、そのまま貼れる Markdown で示す。\n"
+    "- 記事の文体・トーン・見出し構造を尊重する。\n"
+    "- 「編集中の記事」「選択箇所」は参考情報。ユーザーの質問に直接答えることを優先する。"
+)
+
+
+def build_chat_messages(
+    history: list[Message],
+    document_md: str | None = None,
+    selection: str | None = None,
+    rag_context: str | None = None,
+) -> list[Message]:
+    """マルチターン会話。文書・選択範囲・RAG を system の文脈として先頭に差し込む。"""
+    messages: list[Message] = [{"role": "system", "content": CHAT_SYSTEM}]
+    context_parts: list[str] = []
+    if rag_context:
+        context_parts.append(f"## 参考資料（RAG 検索結果）\n{rag_context}")
+    if document_md:
+        context_parts.append(f"## 編集中の記事（全文・参考）\n{document_md}")
+    if selection:
+        context_parts.append(f"## ユーザーが選択している箇所\n{selection}")
+    if context_parts:
+        messages.append({"role": "system", "content": "\n\n".join(context_parts)})
+    messages.extend(
+        {"role": m["role"], "content": m["content"]} for m in history
+    )
+    return messages
+
+
 def build_review_messages(
     text: str,
     context_before: str | None = None,

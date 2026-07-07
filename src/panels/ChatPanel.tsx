@@ -1,0 +1,132 @@
+import { useEffect, useRef, useState } from 'react'
+
+export interface ChatMsg {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ChatState {
+  messages: ChatMsg[]
+  streaming: boolean
+  error?: string | null
+}
+
+interface ChatPanelProps {
+  chat: ChatState
+  canReplace: boolean // 本文に選択範囲があるか（「選択範囲を置換」の可否）
+  onSend: (text: string, useRag: boolean) => void
+  onInsert: (text: string) => void
+  onReplace: (text: string) => void
+  onClear: () => void
+  onClose: () => void
+}
+
+export default function ChatPanel({
+  chat,
+  canReplace,
+  onSend,
+  onInsert,
+  onReplace,
+  onClear,
+  onClose,
+}: ChatPanelProps) {
+  const [input, setInput] = useState('')
+  const [useRag, setUseRag] = useState(false)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  // 新しいトークン・メッセージが来たら末尾へスクロール
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chat.messages, chat.streaming])
+
+  const send = () => {
+    const text = input.trim()
+    if (!text || chat.streaming) return
+    onSend(text, useRag)
+    setInput('')
+  }
+
+  return (
+    <div className="chat-panel">
+      <div className="chat-panel-header">
+        <span>チャット</span>
+        <div className="chat-panel-header-actions">
+          {chat.messages.length > 0 && (
+            <button onClick={onClear} title="会話をリセット">
+              クリア
+            </button>
+          )}
+          <button onClick={onClose}>閉じる</button>
+        </div>
+      </div>
+
+      <div className="chat-panel-messages" ref={scrollRef}>
+        {chat.messages.length === 0 && (
+          <div className="chat-empty">
+            編集中の記事を文脈に相談できます。
+            <br />
+            「この段落をレビューして」「導入をもっと簡潔に」など。
+          </div>
+        )}
+        {chat.messages.map((m, i) => {
+          const isLast = i === chat.messages.length - 1
+          const streamingThis = chat.streaming && isLast && m.role === 'assistant'
+          return (
+            <div key={i} className={`chat-msg chat-msg-${m.role}`}>
+              <div className="chat-msg-body">
+                {m.content}
+                {streamingThis && <span className="diff-caret">▌</span>}
+              </div>
+              {m.role === 'assistant' && m.content.trim() && !streamingThis && (
+                <div className="chat-msg-actions">
+                  <button onClick={() => onInsert(m.content)} title="カーソル位置に挿入">
+                    挿入
+                  </button>
+                  <button
+                    disabled={!canReplace}
+                    onClick={() => onReplace(m.content)}
+                    title={canReplace ? '選択範囲を置換' : '本文で置換したい範囲を選択してください'}
+                  >
+                    置換
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {chat.error && <div className="diff-error">{chat.error}</div>}
+      </div>
+
+      <div className="chat-panel-input">
+        <textarea
+          placeholder="メッセージを入力（Enter で送信 / Shift+Enter で改行）"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              send()
+            }
+          }}
+        />
+        <div className="chat-panel-input-row">
+          <label
+            className="assist-rag-toggle"
+            title="RAG（過去記事・リファレンス・Web 取得資料）を検索して文脈に含めます"
+          >
+            <input
+              type="checkbox"
+              checked={useRag}
+              onChange={(e) => setUseRag(e.target.checked)}
+            />
+            RAG
+          </label>
+          <button className="primary" disabled={chat.streaming || !input.trim()} onClick={send}>
+            {chat.streaming ? '応答中…' : '送信'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

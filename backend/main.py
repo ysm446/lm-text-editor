@@ -159,6 +159,19 @@ class ReviewSplitRequest(BaseModel):
     outline: str | None = None
 
 
+class ChatMessage(BaseModel):
+    role: str  # 'user' | 'assistant'
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    doc_id: int | None = None
+    document_md: str | None = None  # 編集中の記事全文（文脈）
+    selection: str | None = None  # ユーザーが選択している箇所（あれば）
+    use_rag: bool = False  # 直近のユーザー発話で hybrid search して文脈に含める
+
+
 class AssetCreate(BaseModel):
     document_id: int
     filename: str
@@ -557,6 +570,46 @@ async def generate_section(body: GenerateSectionRequest) -> StreamingResponse:
 
     messages = prompts.build_section_messages(
         body.instruction, body.document_md, rag_context
+    )
+    return StreamingResponse(
+        llm_client.stream_chat(
+            cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=2048
+        ),
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.post("/chat")
+async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
+    """文書を文脈にしたマルチターン対話（レビュー・相談）。応答を平文でストリーム返却。
+
+    RAG は use_rag のときだけ直近のユーザー発話で hybrid search する（明示発火）。
+    Web 検索・function calling は未対応（フェーズ 7 の後続で検討）。
+    """
+    if not body.messages:
+        raise HTTPException(status_code=400, detail="messages is required")
+    cfg = await _require_llm("generate")
+
+    history = [{"role": m.role, "content": m.content} for m in body.messages]
+
+    rag_context: str | None = None
+    if body.use_rag:
+        workspace_id: int | None = None
+        if body.doc_id is not None:
+            doc = models.get_doc(body.doc_id)
+            if doc:
+                workspace_id = doc["workspace_id"]
+        query = next(
+            (m["content"] for m in reversed(history) if m["role"] == "user"), ""
+        )
+        if query.strip():
+            results = await asyncio.to_thread(
+                rag_search.hybrid_search, query, workspace_id, 5
+            )
+            rag_context = rag_search.build_rag_context(results) or None
+
+    messages = prompts.build_chat_messages(
+        history, body.document_md, body.selection, rag_context
     )
     return StreamingResponse(
         llm_client.stream_chat(

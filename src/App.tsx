@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Sidebar from './workspace/Sidebar'
 import PaneResizer from './workspace/PaneResizer'
-import Editor from './editor/Editor'
+import Editor, { type RightTab } from './editor/Editor'
 import ModelBar from './ModelBar'
 import WebSearchPanel from './panels/WebSearchPanel'
 import SourceViewer from './panels/SourceViewer'
@@ -42,7 +42,7 @@ export default function App() {
   const [sources, setSources] = useState<RagSource[]>([])
   const [viewingSource, setViewingSource] = useState<RagSource | null>(null)
   const [viewingImage, setViewingImage] = useState<WorkspaceImage | null>(null)
-  const [assistPaneOpen, setAssistPaneOpen] = useState(false)
+  const [rightTab, setRightTab] = useState<RightTab>(null) // 右ペイン: 執筆支援 / チャット / 閉
   // ペイン幅（px・ドラッグで可変・localStorage に記憶）
   const PANE_MIN = 280
   const PANE_MAX = 900
@@ -466,8 +466,8 @@ export default function App() {
                   registerImageInserter={(fn) => {
                     imageInserter.current = fn
                   }}
-                  assistOpen={assistPaneOpen}
-                  onToggleAssist={() => setAssistPaneOpen((v) => !v)}
+                  rightTab={rightTab}
+                  onSetRightTab={setRightTab}
                   titleSlot={
                     <input
                       className="doc-title"
@@ -491,8 +491,8 @@ export default function App() {
             )}
           </div>
 
-          {/* 右ペイン: 執筆支援（Editor が portal で描画する） */}
-          {assistPaneOpen && currentDoc && (
+          {/* 右ペイン: 執筆支援 / チャット（Editor が portal で描画する） */}
+          {rightTab && currentDoc && (
             <PaneResizer
               side="right"
               width={rightPaneWidth}
@@ -509,8 +509,8 @@ export default function App() {
             />
           )}
           <aside
-            className={`pane pane-right${assistPaneOpen && currentDoc ? ' open' : ''}`}
-            style={assistPaneOpen && currentDoc ? { flexBasis: rightPaneWidth } : undefined}
+            className={`pane pane-right${rightTab && currentDoc ? ' open' : ''}`}
+            style={rightTab && currentDoc ? { flexBasis: rightPaneWidth } : undefined}
           >
             <div className="pane-inner" id="assist-pane-root" />
           </aside>

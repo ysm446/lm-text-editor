@@ -15,9 +15,13 @@ import SplitReview, {
 } from '../review/SplitReview'
 import RevisionPanel from '../review/RevisionPanel'
 import AssistPanel, { type AssistState } from '../panels/AssistPanel'
+import ChatPanel, { type ChatState } from '../panels/ChatPanel'
 import FormatToolbar from './toolbar/FormatToolbar'
 import TableToolbar from './toolbar/TableToolbar'
 import ToolPalette from './ToolPalette'
+
+// 右ペインのタブ（執筆支援 / チャット / 閉）。開閉とタブ選択は App が持つ
+export type RightTab = 'assist' | 'chat' | null
 
 const DRAFT_DEBOUNCE_MS = 1500
 const REVIEW_CONTEXT_CHARS = 500
@@ -32,8 +36,8 @@ interface EditorProps {
   onSaved: (docId: number) => void
   onImageUploaded?: () => void // ペースト/ドロップで画像を保存した後の通知
   registerImageInserter?: (fn: (url: string) => void) => void // サイドバーからの挿入用
-  assistOpen: boolean // 右ペイン（執筆支援）の開閉は App が管理
-  onToggleAssist: () => void
+  rightTab: RightTab // 右ペインのタブ（執筆支援 / チャット / 閉）は App が管理
+  onSetRightTab: (tab: RightTab) => void
   titleSlot?: ReactNode // タイトル入力（App が管理）。ツールバーと本文の間に表示する
 }
 
@@ -101,8 +105,8 @@ export default function Editor({
   onSaved,
   onImageUploaded,
   registerImageInserter,
-  assistOpen,
-  onToggleAssist,
+  rightTab,
+  onSetRightTab,
   titleSlot,
 }: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
@@ -125,11 +129,16 @@ export default function Editor({
   useEffect(() => {
     setAssistPaneEl(document.getElementById('assist-pane-root'))
   }, [])
-  // ペインが閉じられたら生成状態もリセット
+  // 執筆支援タブから離れたら生成状態をリセット（チャット履歴はタブ切替では消さない）
   useEffect(() => {
-    if (!assistOpen) setAssist(null)
-  }, [assistOpen])
+    if (rightTab !== 'assist') setAssist(null)
+  }, [rightTab])
   const [splitReview, setSplitReview] = useState<SplitReviewState | null>(null)
+  const [chat, setChat] = useState<ChatState>({
+    messages: [],
+    streaming: false,
+    error: null,
+  })
 
   const getMarkdown = () =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -500,8 +509,68 @@ export default function Editor({
     // tiptap-markdown により Markdown 文字列はパースされて挿入される
     editorRef.current?.chain().focus().insertContentAt(pos, assist.output).run()
     setAssist(null)
-    onToggleAssist() // 挿入後はペインを閉じる
+    onSetRightTab(null) // 挿入後はペインを閉じる
   }
+
+  // チャット: 本文（+ 選択範囲）を文脈にマルチターン対話する
+  const sendChat = async (text: string, useRag: boolean) => {
+    const ed = editorRef.current
+    if (!ed || chat.streaming) return
+    const { from, to } = ed.state.selection
+    const selection = from !== to ? ed.state.doc.textBetween(from, to, '\n') : null
+    const history = [...chat.messages, { role: 'user' as const, content: text }]
+    // assistant のプレースホルダを足し、ストリームで中身を埋める
+    setChat({
+      messages: [...history, { role: 'assistant', content: '' }],
+      streaming: true,
+      error: null,
+    })
+    const setLast = (content: string) =>
+      setChat((c) => ({
+        ...c,
+        messages: c.messages.map((m, i) =>
+          i === c.messages.length - 1 ? { ...m, content } : m,
+        ),
+      }))
+    try {
+      let output = ''
+      for await (const chunk of streamText('/chat', {
+        messages: history,
+        doc_id: docId,
+        document_md: getMarkdown(),
+        selection,
+        use_rag: useRag,
+      })) {
+        output += chunk
+        setLast(output)
+      }
+      setLast(output.trim())
+      setChat((c) => ({ ...c, streaming: false }))
+    } catch (e) {
+      setChat((c) => ({
+        ...c,
+        streaming: false,
+        error: String(e instanceof Error ? e.message : e),
+      }))
+    }
+  }
+
+  // チャットの提案を本文へ（Markdown はパースされて挿入される）
+  const chatInsert = (text: string) => {
+    const pos = editorRef.current?.state.selection.head ?? 0
+    editorRef.current?.chain().focus().insertContentAt(pos, text).run()
+  }
+
+  const chatReplace = (text: string) => {
+    const ed = editorRef.current
+    if (!ed) return
+    const { from, to } = ed.state.selection
+    if (from === to) return
+    ed.chain().focus().insertContentAt({ from, to }, text).run()
+  }
+
+  const chatClear = () =>
+    setChat({ messages: [], streaming: false, error: null })
 
   const acceptReview = () => {
     if (!review || review.status !== 'ready') return
@@ -542,11 +611,18 @@ export default function Editor({
           全体を校正
         </button>
         <button
-          className={assistOpen ? 'active-toggle' : ''}
-          onClick={onToggleAssist}
+          className={rightTab === 'assist' ? 'active-toggle' : ''}
+          onClick={() => onSetRightTab(rightTab === 'assist' ? null : 'assist')}
           title="続き生成・セクション生成（右ペインに表示）"
         >
           執筆支援
+        </button>
+        <button
+          className={rightTab === 'chat' ? 'active-toggle' : ''}
+          onClick={() => onSetRightTab(rightTab === 'chat' ? null : 'chat')}
+          title="LLM とチャット（本文を文脈にレビュー・相談）"
+        >
+          チャット
         </button>
         <button
           onClick={() => {
@@ -625,15 +701,29 @@ export default function Editor({
           onClose={() => setSplitReview(null)}
         />
       )}
-      {assistOpen &&
-        assistPaneEl &&
+      {assistPaneEl &&
+        rightTab === 'assist' &&
         createPortal(
           <AssistPanel
             assist={assist}
             onContinue={assistContinue}
             onGenerateSection={assistSection}
             onInsert={assistInsert}
-            onClose={onToggleAssist}
+            onClose={() => onSetRightTab(null)}
+          />,
+          assistPaneEl,
+        )}
+      {assistPaneEl &&
+        rightTab === 'chat' &&
+        createPortal(
+          <ChatPanel
+            chat={chat}
+            canReplace={!selectionEmpty}
+            onSend={(text, useRag) => void sendChat(text, useRag)}
+            onInsert={chatInsert}
+            onReplace={chatReplace}
+            onClear={chatClear}
+            onClose={() => onSetRightTab(null)}
           />,
           assistPaneEl,
         )}

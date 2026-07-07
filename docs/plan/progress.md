@@ -1,7 +1,7 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-08 13:00
+更新日時: 2026-07-08 14:00
 
 ## 現在の状態
 
@@ -95,6 +95,15 @@
   - collectBlocks はトップレベルの textblock のみ対象なので、表は校正の対象外（セル内段落も非トップレベルで触られない）。
   - 検証: `npm run build`（tsc 型検査 + バンドル）通過。tiptap-markdown のシリアライザ解決経路を静的に確認。実アプリでの表示確認は未実施（Electron 起動はユーザーの backend/LLM を巻き込むため。`npm run dev` で目視予定）。
 
+- 2026-07-08 Electron 終了時の shutdown ガード: `electron/main.ts` の window-all-closed に env ガードを追加。`LM_KEEP_BACKEND=1` を立てて起動すると、閉じても `/shutdown` を投げず自分だけ終了する（検証時に別途起動済みの backend/LLM を残す）。通常利用は従来どおり後片付け。
+
+- 2026-07-08 フェーズ 7 チャット機能（7c-1 MVP + 7c-2 RAG トグル。Web 検索 7c-3 と function calling は後回し）:
+  - backend: `POST /chat`（`ChatRequest`: messages + doc_id + document_md + selection + use_rag）。`prompts.build_chat_messages` が chat 用 system + 文脈（RAG/記事全文/選択箇所）を先頭に差し込み、会話履歴を続ける。応答は平文ストリーム。RAG は use_rag 時のみ直近ユーザー発話で hybrid search（明示発火）。
+  - frontend: `src/panels/ChatPanel.tsx`（会話 UI・RAG トグル・各返答の「挿入」「置換」・クリア）。Editor が chat 状態を持ち portal で右ペインに描画。右ペインは `assistOpen` 真偽から `RightTab = 'assist' | 'chat' | null` のタブ制へ一般化（App.tsx / Editor.tsx）。ツールバーに「チャット」ボタン追加。
+  - 挿入は tiptap-markdown で Markdown をパースして本文へ。置換は本文の選択範囲へ。選択が無いと「置換」は無効。
+  - チャット履歴はエディタインスタンス内（ドキュメント単位・セッション限り。永続化なし）。document_md は毎ターン全文を送る（16k 既定内なら問題なし。肥大化時の間引きは将来検討）。
+  - 検証: `npm run build` 通過 / `py_compile` OK / `prompts.build_chat_messages` を単体実行して構造確認。実 LLM との対話確認は未実施（backend 停止中のため。`LM_KEEP_BACKEND=1 npm run dev` で目視予定）。
+
 - 2026-07-07 フェーズ 4 Web 検索:
   - manager を 2 スロット化（gemma :8080 / ornith :8081）。モデルバーに「検索LLM」の起動/停止を追加。
   - 検索: ddgs（キー不要）既定、TAVILY_API_KEY 設定時は Tavily 優先。ornith がクエリ分解（enable_thinking=false で高速化。news-picker の知見）。
@@ -123,7 +132,8 @@
 - フェーズ 4: Web 検索（ornith 9B :8081、`<think>` パーサ、Tavily、trafilatura、二層保存）。
 - 表（テーブル）機能の実アプリ目視確認（挿入・行列操作・列幅リサイズ・GFM 書き出し/読み込みの往復）。
 - 内容を踏まえた校正への発展（2026-07-07 追加。plan.md「発展構想」参照。用語統一・論理チェック・RAG 突き合わせ・指摘型レビュー）。
-- フェーズ 7（2026-07-07 追加）: 右パネル型の支援レイアウト（左=本文 / 右=執筆支援・アドバイス・ソース・チャットのタブ）と、LLM とチャットしながら執筆を進める機能。plan.md フェーズ 7 参照。
+- フェーズ 7 残り: チャットの Web 検索トグル（7c-3・後回し）、履歴の永続化、アドバイス/ソースのタブ、分割ビュー校正の右パネル寄せ。チャット MVP + RAG トグルは 2026-07-08 実装済み。plan.md フェーズ 7 参照。
+- 表・チャットの実アプリ目視確認（`LM_KEEP_BACKEND=1 npm run dev` で backend を巻き込まずに）。
 - 既知の制限: 分割ビュー校正はリスト内・引用内の段落を対象にしない（トップレベルのみ）。左ペインは読み取り専用（spec は編集可能を想定）。必要になったら拡張。
 
 ## 注意点
