@@ -15,6 +15,9 @@ DEFAULTS: dict[str, Any] = {
     "theme": "light",
     "editor_font_size": 16,
     "tavily_api_key": "",
+    # LLM のモデル割り当て（models/ 配下の絶対パス）
+    "writing_model_path": "",  # 文章用（:8080）。"" = 未設定（モデルバーで選択）
+    "search_model_path": "",   # Web 検索用（:8081）。"" = 既定の ornith / "same" = 文章用と共用
 }
 
 

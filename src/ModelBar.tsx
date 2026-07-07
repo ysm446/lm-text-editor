@@ -38,6 +38,15 @@ export default function ModelBar() {
 
   useEffect(() => {
     void api.listLocalModels().then(setModels).catch(() => setModels([]))
+    // 設定の既定モデル（文章用）をドロップダウンの初期選択にする
+    void api
+      .getSettings()
+      .then((s) => {
+        if (s.writing_model_path) {
+          setSelected((cur) => cur || s.writing_model_path)
+        }
+      })
+      .catch(() => undefined)
     void poll()
     timer.current = window.setInterval(() => void poll(), POLL_MS)
     return () => {
@@ -125,11 +134,16 @@ export default function ModelBar() {
 
         <span className="model-bar-divider" />
         <span
-          className={`model-dot ${ornith?.status === 'loading' ? 'loading' : (ornith?.status ?? 'stopped')}`}
+          className={`model-dot ${ornith?.status === 'loading' ? 'loading' : ornith?.status === 'shared' ? (st === 'ready' ? 'ready' : 'stopped') : (ornith?.status ?? 'stopped')}`}
         />
-        <span className="ornith-label" title="検索クエリ分解・要約用の ornith 9B (:8081)">
+        <span className="ornith-label" title="検索クエリ分解・要約用の LLM (:8081)">
           検索LLM
         </span>
+        {ornith?.status === 'shared' && (
+          <span className="ornith-shared" title="設定で「文章用と同じ」が選ばれています">
+            文章用と共用
+          </span>
+        )}
         {ornith?.status === 'stopped' && (
           <button
             disabled={ornith == null}
@@ -139,7 +153,10 @@ export default function ModelBar() {
             起動
           </button>
         )}
-        {ornith != null && ornith.status !== 'stopped' && !ornith.external && (
+        {ornith != null &&
+          ornith.status !== 'stopped' &&
+          ornith.status !== 'shared' &&
+          !ornith.external && (
           <button
             onClick={() => void api.ornithStop().then(poll).catch((e) => setError(String(e)))}
             title="ornith 9B を停止"

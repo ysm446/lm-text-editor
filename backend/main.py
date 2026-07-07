@@ -188,6 +188,8 @@ class SettingsUpdate(BaseModel):
     theme: str | None = None
     editor_font_size: int | None = None
     tavily_api_key: str | None = None
+    writing_model_path: str | None = None
+    search_model_path: str | None = None  # "" = 既定の ornith / "same" = 文章用と共用
 
 
 @app.get("/settings")
@@ -382,6 +384,9 @@ def llama_eject() -> dict[str, Any]:
 
 @app.get("/ornith/status")
 def ornith_status() -> dict[str, Any]:
+    if llm_manager.search_is_shared():
+        # 「文章用と共用」設定: 個別サーバは持たない
+        return {"status": "shared", "active_model_path": None, "external": False}
     return llm_manager.get_status("ornith")
 
 

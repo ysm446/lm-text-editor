@@ -1853,3 +1853,9 @@ body {
 .lightbox-actions button.danger {
   color: var(--danger);
 }
+
+.ornith-shared {
+  color: #9198a1;
+  font-size: 0.95em;
+  white-space: nowrap;
+}

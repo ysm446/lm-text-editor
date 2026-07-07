@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { AppSettings } from '../api/client'
-import { PencilIcon, SearchIcon, SunIcon } from '../icons'
+import { api, type AppSettings, type LocalModel } from '../api/client'
+import { BookIcon, PencilIcon, SearchIcon, SunIcon } from '../icons'
 
-type Category = 'appearance' | 'editor' | 'websearch'
+type Category = 'appearance' | 'editor' | 'llm' | 'websearch'
 
 const CATEGORIES: { key: Category; label: string; icon: ReactNode }[] = [
   { key: 'appearance', label: '外観', icon: <SunIcon /> },
   { key: 'editor', label: 'エディタ', icon: <PencilIcon size={14} /> },
+  { key: 'llm', label: 'LLM', icon: <BookIcon size={14} /> },
   { key: 'websearch', label: 'Web 検索', icon: <SearchIcon /> },
 ]
 
@@ -32,6 +33,11 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const [active, setActive] = useState<Category>('appearance')
   const [tavilyDraft, setTavilyDraft] = useState(settings.tavily_api_key)
+  const [models, setModels] = useState<LocalModel[]>([])
+
+  useEffect(() => {
+    void api.listLocalModels().then(setModels).catch(() => setModels([]))
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -101,6 +107,46 @@ export default function SettingsModal({
                   ))}
                 </select>
               </section>
+            )}
+            {active === 'llm' && (
+              <>
+                <section>
+                  <h3>文章用 LLM（執筆・校正）</h3>
+                  <p className="settings-desc">
+                    モデルバーの「起動」で使われる既定モデル。切替は次回起動時から。
+                  </p>
+                  <select
+                    value={settings.writing_model_path}
+                    onChange={(e) => onChange({ writing_model_path: e.target.value })}
+                  >
+                    <option value="">未設定（モデルバーで都度選択）</option>
+                    {models.map((m) => (
+                      <option key={m.path} value={m.path}>
+                        {m.id}（{(m.size_bytes / 1024 ** 3).toFixed(1)} GB）
+                      </option>
+                    ))}
+                  </select>
+                </section>
+                <section>
+                  <h3>Web 検索用 LLM（クエリ分解・要約）</h3>
+                  <p className="settings-desc">
+                    「文章用と同じ」にすると 1 つの LLM で兼用します（VRAM
+                    節約。検索用の個別起動が不要になります）。
+                  </p>
+                  <select
+                    value={settings.search_model_path}
+                    onChange={(e) => onChange({ search_model_path: e.target.value })}
+                  >
+                    <option value="">既定（ornith 9B）</option>
+                    <option value="same">文章用と同じ（1 つの LLM で兼用）</option>
+                    {models.map((m) => (
+                      <option key={m.path} value={m.path}>
+                        {m.id}（{(m.size_bytes / 1024 ** 3).toFixed(1)} GB）
+                      </option>
+                    ))}
+                  </select>
+                </section>
+              </>
             )}
             {active === 'websearch' && (
               <section>

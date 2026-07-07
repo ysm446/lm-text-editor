@@ -27,3 +27,12 @@ TASK_ROUTES: dict[str, Route] = {
 
 def route(task: str) -> Route:
     return TASK_ROUTES[task]
+
+
+def search_base_url() -> str:
+    """検索・要約タスクの接続先。「文章用と共用」設定なら :8080 に向ける。"""
+    from backend import settings_store
+
+    if settings_store.read().get("search_model_path") == "same":
+        return config.GEMMA_BASE_URL
+    return config.ORNITH_BASE_URL

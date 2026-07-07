@@ -17,13 +17,33 @@ from typing import Any
 
 import httpx
 
-from backend import config, paths
+from backend import config, paths, settings_store
 
 logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 LLAMA_EXE = ROOT_DIR / "runtime" / "llama.cpp" / "llama-server.exe"
 MODELS_DIR = ROOT_DIR / "models"
+DEFAULT_SEARCH_MODEL = MODELS_DIR / "Ornith-1.0-9B-GGUF" / "ornith-1.0-9b-Q4_K_M.gguf"
+
+
+def search_is_shared() -> bool:
+    """検索用 LLM を文章用と共用する設定か。"""
+    return settings_store.read().get("search_model_path") == "same"
+
+
+def resolve_slot_model(slot: str) -> Path | None:
+    """設定からスロットの既定モデルを解決する。"""
+    settings = settings_store.read()
+    if slot == "gemma":
+        p = settings.get("writing_model_path") or ""
+        return Path(p) if p else None
+    if slot == "ornith":
+        p = settings.get("search_model_path") or ""
+        if p == "same":
+            return None  # 共用設定: ornith スロットは使わない
+        return Path(p) if p else DEFAULT_SEARCH_MODEL
+    return None
 
 
 def _port_of(base_url: str) -> int:
@@ -33,13 +53,11 @@ def _port_of(base_url: str) -> int:
 SLOTS: dict[str, dict[str, Any]] = {
     "gemma": {
         "port": _port_of(config.GEMMA_BASE_URL),
-        "fixed_model": None,  # UI で選択
         # Gemma 4 は reasoning モデルのため --reasoning-budget 0 必須（CLAUDE.md 参照）
         "args": ["-ngl", "99", "-c", "16384", "--jinja", "--reasoning-budget", "0"],
     },
     "ornith": {
         "port": _port_of(config.ORNITH_BASE_URL),
-        "fixed_model": MODELS_DIR / "Ornith-1.0-9B-GGUF" / "ornith-1.0-9b-Q4_K_M.gguf",
         # --jinja で思考は reasoning_content に分離される。要約などの高頻度タスクは
         # リクエスト側の chat_template_kwargs {"enable_thinking": false} で思考を切る
         # （news-picker の知見: ornith は一言の回答にも思考 ~1000 トークンを使う）
@@ -161,13 +179,16 @@ def get_status(slot: str) -> dict[str, Any]:
 def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
     spec = SLOTS[slot]
     if model_path is None:
-        if spec["fixed_model"] is None:
-            raise ValueError("model_path is required")
-        p = Path(spec["fixed_model"])
+        resolved = resolve_slot_model(slot)
+        if resolved is None:
+            if slot == "ornith" and search_is_shared():
+                raise ValueError("検索用 LLM は文章用と共用の設定です（個別起動は不要）")
+            raise ValueError("モデルが選択されていません（設定画面またはモデルバーで選択してください）")
+        p = resolved.resolve()
     else:
         p = Path(model_path).resolve()
-        if MODELS_DIR.resolve() not in p.parents:
-            raise ValueError("models/ 配下のモデルのみ指定できます")
+    if MODELS_DIR.resolve() not in p.parents:
+        raise ValueError("models/ 配下のモデルのみ指定できます")
     if not p.exists():
         raise ValueError(f"モデルが見つかりません: {p}")
     if not LLAMA_EXE.exists():

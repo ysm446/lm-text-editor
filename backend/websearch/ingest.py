@@ -1,4 +1,4 @@
-"""Web ページの取り込み: 取得 → 抽出 → 二層保存（spec.md §8, §9）。
+﻿"""Web ページの取り込み: 取得 → 抽出 → 二層保存（spec.md §8, §9）。
 
 - 一次: 原文チャンク（rag_chunk, source_type='web'）— 引用・裏取り用
 - 二次: ソースノート（source_note）— ornith の要約。俯瞰と当たり付け用
@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from backend import config
+from backend import router
 from backend.llm import client as llm_client
 from backend.llm import think_parser
 from backend.rag import store as rag_store
@@ -31,11 +31,11 @@ SUMMARY_SYSTEM = (
 
 async def summarize(text: str, title: str) -> str | None:
     """ornith が起動していれば要約を返す。いなければ None。"""
-    if not await llm_client.is_alive(config.ORNITH_BASE_URL):
+    if not await llm_client.is_alive(router.search_base_url()):
         return None
     try:
         raw = await llm_client.chat(
-            config.ORNITH_BASE_URL,
+            router.search_base_url(),
             [
                 {"role": "system", "content": SUMMARY_SYSTEM},
                 {

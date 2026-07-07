@@ -1,4 +1,4 @@
-"""Web 検索と ornith によるクエリ分解（spec.md §9）。
+﻿"""Web 検索と ornith によるクエリ分解（spec.md §9）。
 
 検索プロバイダ: Tavily（API キーがあれば）→ ddgs / DuckDuckGo（キー不要）の順。
 ddgs へのフォールバックは news-picker の search_web.py を流用。
@@ -14,7 +14,7 @@ from typing import Any
 
 import httpx
 
-from backend import config, paths
+from backend import paths, router
 from backend.llm import client as llm_client
 from backend.llm import think_parser
 
@@ -47,11 +47,11 @@ def get_tavily_api_key() -> str | None:
 
 async def decompose_query(query: str) -> list[str]:
     """ornith が起動していればクエリ分解、いなければ元クエリのまま。"""
-    if not await llm_client.is_alive(config.ORNITH_BASE_URL):
+    if not await llm_client.is_alive(router.search_base_url()):
         return [query]
     try:
         raw = await llm_client.chat(
-            config.ORNITH_BASE_URL,
+            router.search_base_url(),
             [
                 {"role": "system", "content": QUERY_DECOMPOSE_SYSTEM},
                 {"role": "user", "content": query},

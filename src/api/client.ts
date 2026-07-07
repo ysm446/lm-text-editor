@@ -110,6 +110,8 @@ export interface AppSettings {
   theme: string // 'light' | 'dark'（今後パターン追加予定）
   editor_font_size: number
   tavily_api_key: string
+  writing_model_path: string // 文章用 LLM（'' = 未設定）
+  search_model_path: string // Web 検索用 LLM（'' = 既定 ornith / 'same' = 文章用と共用）
 }
 
 export interface GpuStat {
@@ -135,7 +137,7 @@ export interface LocalModel {
 }
 
 export interface LlamaStatus {
-  status: 'stopped' | 'loading' | 'ready'
+  status: 'stopped' | 'loading' | 'ready' | 'shared'
   active_model_path: string | null
   external: boolean
 }
