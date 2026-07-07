@@ -1420,6 +1420,13 @@ select:focus-visible {
   outline: none;
 }
 
+/* 枠なしの見出し欄なのでフォーカスリングは出さない（キャレットで十分。
+   グローバルの input:focus-visible が sticky ツールバー下に食い込むのを防ぐ） */
+.doc-title:focus,
+.doc-title:focus-visible {
+  outline: none;
+}
+
 .placeholder {
   text-align: center;
   color: var(--muted);
