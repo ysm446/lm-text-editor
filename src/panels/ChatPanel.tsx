@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import MarkdownIt from 'markdown-it'
+
+// 返答は Markdown で表示する。html:false で生 HTML はエスケープ（LLM 出力の安全側）。
+// リンククリックは Electron 側の will-navigate が外部ブラウザへ流す。
+const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
 export interface ChatMsg {
   role: 'user' | 'assistant'
@@ -74,10 +79,14 @@ export default function ChatPanel({
           const streamingThis = chat.streaming && isLast && m.role === 'assistant'
           return (
             <div key={i} className={`chat-msg chat-msg-${m.role}`}>
-              <div className="chat-msg-body">
-                {m.content}
-                {streamingThis && <span className="diff-caret">▌</span>}
-              </div>
+              {m.role === 'assistant' ? (
+                <div className="chat-msg-body chat-md">
+                  <div dangerouslySetInnerHTML={{ __html: md.render(m.content) }} />
+                  {streamingThis && <span className="diff-caret">▌</span>}
+                </div>
+              ) : (
+                <div className="chat-msg-body">{m.content}</div>
+              )}
               {m.role === 'assistant' && m.content.trim() && !streamingThis && (
                 <div className="chat-msg-actions">
                   <button onClick={() => onInsert(m.content)} title="カーソル位置に挿入">
