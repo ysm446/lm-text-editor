@@ -202,7 +202,7 @@ select:focus-visible {
 }
 
 /* --- 主ボタン（primary = アクセント。1 画面 1 つが原則） --- */
-.editor-toolbar .save-btn:not(:disabled),
+.tool-palette .save-btn:not(:disabled),
 .inline-diff-actions button.primary,
 .assist-panel-actions button.primary,
 .split-review-actions button.primary:not(:disabled),
@@ -217,7 +217,7 @@ select:focus-visible {
   font-weight: 600;
 }
 
-.editor-toolbar .save-btn:not(:disabled):hover,
+.tool-palette .save-btn:not(:disabled):hover,
 .inline-diff-actions button.primary:hover,
 .assist-panel-actions button.primary:hover,
 .split-review-actions button.primary:not(:disabled):hover,
@@ -1072,52 +1072,89 @@ select:focus-visible {
   font-size: var(--fs-sm);
 }
 
-/* 操作ツールバー: 枠なしの ghost ボタン。目立つのは保存だけ */
-.editor-toolbar {
-  display: flex;
-  gap: 4px;
-  padding: 0;
-  align-items: center;
-  margin-left: auto; /* 1 段ツールバーの右端に寄せる */
+/* 操作ツールのフローティングパレット: ドラッグで移動できる浮いたウインドウ */
+.tool-palette {
+  position: fixed;
+  z-index: 90; /* sticky ツールバー(50)より上、モーダル(100+)より下 */
+  width: 176px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-2);
+  padding: 4px;
 }
 
-.editor-toolbar button {
-  padding: 4px 10px;
+.tool-palette-grip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 6px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  cursor: grab;
+  user-select: none;
+  touch-action: none; /* Pointer Events でドラッグするため既定ジェスチャを無効化 */
+}
+
+.tool-palette-grip.dragging {
+  cursor: grabbing;
+}
+
+.tool-palette-grip-dots {
+  color: var(--faint);
+}
+
+.tool-palette-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tool-palette-body button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 10px;
   border: 1px solid transparent;
   border-radius: var(--radius-m);
   background: none;
-  color: var(--muted);
+  color: var(--text);
   cursor: pointer;
   font-size: var(--fs-ui);
   white-space: nowrap;
   transition: background 0.12s ease, color 0.12s ease;
 }
 
-.editor-toolbar button:hover:not(:disabled) {
+.tool-palette-body button:hover:not(:disabled) {
   background: var(--hover);
-  color: var(--text);
 }
 
-.editor-toolbar button:disabled {
+.tool-palette-body button:disabled {
   color: var(--faint);
   cursor: default;
 }
 
 /* 執筆支援トグルの点灯 */
-.editor-toolbar button.active-toggle {
+.tool-palette-body button.active-toggle {
   background: var(--selected);
   color: var(--accent);
 }
 
-.editor-toolbar .save-btn {
-  padding: 4px 14px;
+.tool-palette .save-btn {
+  text-align: center;
+  margin-top: 4px;
 }
 
-.editor-toolbar .save-btn:disabled {
+.tool-palette .save-btn:disabled {
   background: var(--hover);
   border-color: transparent;
   color: var(--faint);
   font-weight: 400;
+}
+
+.tool-palette .dirty-indicator,
+.tool-palette .save-error {
+  padding: 2px 10px;
 }
 
 .dirty-indicator {
