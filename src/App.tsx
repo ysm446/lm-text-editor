@@ -430,10 +430,20 @@ export default function App() {
         onDeleteWorkspace={(id) => void deleteWorkspace(id)}
         onRenameDoc={(id, title) => void renameDoc(id, title)}
         onDeleteDoc={(id) => void deleteDoc(id)}
+        currentSource={viewingSource}
         onAddSourceFiles={(files) => void addSourceFiles(files)}
         onCreateNote={() => void createNote()}
         onWebSearch={() => setWebSearchOpen(true)}
-        onViewSource={setViewingSource}
+        onViewSource={(s) =>
+          // もう一度同じ資料を押したら閉じる（トグル）。閉じると選択も解除される
+          setViewingSource((cur) =>
+            cur &&
+            cur.source_type === s.source_type &&
+            (cur.source_url ?? '') === (s.source_url ?? '')
+              ? null
+              : s,
+          )
+        }
         onDeleteSource={(s) => void deleteSource(s)}
         canAddImages={currentDoc != null}
         onAddImageFiles={(files) => void addImageFiles(files)}

@@ -14,6 +14,16 @@ function initialWidth(): number {
 }
 
 // ソースの表示名（URL はファイル名 / ホスト名に短縮）
+// 資料の同一判定（種別 + URL。ノートも source_url を持つ）
+function sameSource(a: RagSource | null, b: RagSource | null): boolean {
+  return (
+    a != null &&
+    b != null &&
+    a.source_type === b.source_type &&
+    (a.source_url ?? '') === (b.source_url ?? '')
+  )
+}
+
 function sourceLabel(s: RagSource): string {
   // 手動ノートはタイトルを表示（本文の正は manual_note 側）
   if (s.source_type === 'note') return s.title || '無題'
@@ -209,6 +219,7 @@ interface SidebarProps {
   docs: DocMeta[]
   currentDocId: number | null
   sources: RagSource[]
+  currentSource: RagSource | null // 左ペインで表示中の資料（ドキュメント選択とは別管理）
   images: WorkspaceImage[]
   onSelectWorkspace: (id: number) => void
   onSelectDoc: (id: number) => void
@@ -245,6 +256,7 @@ export default function Sidebar({
   onDeleteWorkspace,
   onRenameDoc,
   onDeleteDoc,
+  currentSource,
   onAddSourceFiles,
   onCreateNote,
   onWebSearch,
@@ -415,8 +427,8 @@ export default function Sidebar({
             {sources.map((s) => (
               <li key={`${s.source_type}:${s.source_url ?? ''}`} className="item-row">
                 <button
-                  className="source-item"
-                  title={`${s.source_url ?? s.source_type}\n${s.chunk_count} チャンク${s.note_count > 0 ? ' + 要約ノート' : ''}\nクリックで内容を表示`}
+                  className={`source-item${sameSource(currentSource, s) ? ' selected' : ''}`}
+                  title={`${s.source_url ?? s.source_type}\n${s.chunk_count} チャンク${s.note_count > 0 ? ' + 要約ノート' : ''}\nクリックで内容を表示（もう一度で閉じる）`}
                   onClick={() => onViewSource(s)}
                 >
                   <span className={`source-badge type-${s.source_type}`}>

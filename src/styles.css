@@ -1020,8 +1020,15 @@ select:focus-visible {
   background: var(--hover);
 }
 
-.item-row:has(.item.selected) {
+.item-row:has(.item.selected),
+.item-row:has(.source-item.selected) {
   background: var(--selected);
+}
+
+/* 資料（RAG）の選択中は文字も強調（ドキュメント選択に合わせる） */
+.item-row:has(.source-item.selected) .source-name {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .item-row .item {
@@ -1044,7 +1051,8 @@ select:focus-visible {
 
 /* 「…」は行 hover 時と選択行で表示する（画像のように枠の中に出る） */
 .item-row:hover .item-menu-btn,
-.item-row:has(.item.selected) .item-menu-btn {
+.item-row:has(.item.selected) .item-menu-btn,
+.item-row:has(.source-item.selected) .item-menu-btn {
   visibility: visible;
 }
 
