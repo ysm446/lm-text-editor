@@ -122,6 +122,13 @@ select {
   font-size: var(--fs-ui);
 }
 
+/* チェックボックス・ラジオはアクセント（紫）で塗る。ブラウザ既定の水色は
+   このアプリのパレットに無い色なので、チェック状態＝アクティブ状態として統一する */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+}
+
 button {
   font-family: inherit;
 }
@@ -1465,7 +1472,7 @@ select:focus-visible {
   top: 0;
   z-index: 50;
   background: var(--surface);
-  box-shadow: 0 6px 8px -8px var(--shadow-color);
+  box-shadow: 0 3px 6px -6px var(--shadow-color);
 }
 
 /* 書式 + 操作の 1 段構成: 左=書式アイコン、右=操作 + 保存 */
