@@ -39,6 +39,7 @@ interface EditorProps {
   rightTab: RightTab // 右ペインのタブ（執筆支援 / チャット / 閉）は App が管理
   onSetRightTab: (tab: RightTab) => void
   titleSlot?: ReactNode // タイトル入力（App が管理）。ツールバーと本文の間に表示する
+  hasCustomReviewPrompt: boolean // カスタム校正プロンプト設定中は強さ・文体の2軸を無効化（排他）
 }
 
 interface ReviewState {
@@ -69,6 +70,31 @@ function splitThreshold(): number {
   const raw = window.localStorage.getItem('lm-editor.splitThreshold')
   const n = raw ? Number.parseInt(raw, 10) : NaN
   return Number.isFinite(n) && n >= 1 ? n : 2
+}
+
+// 校正の強さ（どこまで直すか）と文体（どう揃えるか）は独立した 2 軸。
+// バックエンドでプロンプトに合成される。選択は localStorage に保持する。
+type ReviewStrength = 'weak' | 'medium' | 'strong'
+type ReviewStyle = 'keep' | 'polite' | 'plain'
+
+const REVIEW_STRENGTHS: { value: ReviewStrength; label: string }[] = [
+  { value: 'weak', label: '弱' },
+  { value: 'medium', label: '中' },
+  { value: 'strong', label: '強' },
+]
+const REVIEW_STYLES: { value: ReviewStyle; label: string }[] = [
+  { value: 'keep', label: '文体維持' },
+  { value: 'polite', label: '敬体' },
+  { value: 'plain', label: '常体' },
+]
+
+function loadReviewOption<T extends string>(
+  key: string,
+  allowed: readonly T[],
+  fallback: T,
+): T {
+  const raw = window.localStorage.getItem(key) as T | null
+  return raw && allowed.includes(raw) ? raw : fallback
 }
 
 // トップレベルのテキストブロックを収集（コードブロックと画像は校正対象外）
@@ -108,6 +134,7 @@ export default function Editor({
   rightTab,
   onSetRightTab,
   titleSlot,
+  hasCustomReviewPrompt,
 }: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
   const draftTimer = useRef<number | null>(null)
@@ -122,6 +149,20 @@ export default function Editor({
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyMd, setHistoryMd] = useState('')
   const [review, setReview] = useState<ReviewState | null>(null)
+  const [reviewStrength, setReviewStrength] = useState<ReviewStrength>(() =>
+    loadReviewOption(
+      'lm-editor.reviewStrength',
+      REVIEW_STRENGTHS.map((s) => s.value),
+      'medium',
+    ),
+  )
+  const [reviewStyle, setReviewStyle] = useState<ReviewStyle>(() =>
+    loadReviewOption(
+      'lm-editor.reviewStyle',
+      REVIEW_STYLES.map((s) => s.value),
+      'keep',
+    ),
+  )
   const [assist, setAssist] = useState<AssistState | null>(null)
   const assistInsertPos = useRef<number | null>(null)
   // 右ペイン（App 側の DOM）へ portal で描画する
@@ -316,6 +357,8 @@ export default function Editor({
       for await (const chunk of streamText('/review/split', {
         blocks: rows.map((r) => r.original),
         outline: buildOutline(ed.state.doc),
+        strength: reviewStrength,
+        style: reviewStyle,
       })) {
         buffer += chunk
         let nl: number
@@ -440,6 +483,8 @@ export default function Editor({
         text: original,
         context_before: contextBefore,
         context_after: contextAfter,
+        strength: reviewStrength,
+        style: reviewStyle,
       })) {
         revised += chunk
         setReview((r) => (r ? { ...r, revised } : r))
@@ -623,6 +668,48 @@ export default function Editor({
         >
           全体を校正
         </button>
+        <select
+          className="review-option"
+          value={reviewStrength}
+          disabled={hasCustomReviewPrompt}
+          onChange={(e) => {
+            const v = e.target.value as ReviewStrength
+            setReviewStrength(v)
+            window.localStorage.setItem('lm-editor.reviewStrength', v)
+          }}
+          title={
+            hasCustomReviewPrompt
+              ? 'カスタム校正プロンプト設定中は無効（設定 > プロンプトで解除すると使えます）'
+              : '校正の強さ（弱=誤りだけ直す／中=自然に整える／強=積極的に書き換える）'
+          }
+        >
+          {REVIEW_STRENGTHS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {`強さ: ${s.label}`}
+            </option>
+          ))}
+        </select>
+        <select
+          className="review-option"
+          value={reviewStyle}
+          disabled={hasCustomReviewPrompt}
+          onChange={(e) => {
+            const v = e.target.value as ReviewStyle
+            setReviewStyle(v)
+            window.localStorage.setItem('lm-editor.reviewStyle', v)
+          }}
+          title={
+            hasCustomReviewPrompt
+              ? 'カスタム校正プロンプト設定中は無効（設定 > プロンプトで解除すると使えます）'
+              : '文体（維持=原文のまま／敬体=です・ます／常体=だ・である）'
+          }
+        >
+          {REVIEW_STYLES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
         <button
           className={rightTab === 'assist' ? 'active-toggle' : ''}
           onClick={() => onSetRightTab(rightTab === 'assist' ? null : 'assist')}

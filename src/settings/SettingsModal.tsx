@@ -254,10 +254,11 @@ export default function SettingsModal({
             )}
             {active === 'prompts' && (
               <section className="settings-prompt-section">
-                <h3>校正のシステムプロンプト</h3>
+                <h3>校正のシステムプロンプト（カスタム）</h3>
                 <p className="settings-desc">
-                  「選択範囲を校正」「全体を校正」で LLM に渡す指示。文体や残す/直す方針を
-                  変えられます。空にして保存すると既定に戻ります。
+                  「選択範囲を校正」「全体を校正」で LLM に渡す指示を丸ごと差し替えます。
+                  <strong>設定すると校正バーの「強さ」「文体」ツマミは無効になります（排他）</strong>
+                  — 強さ・文体で調整したい場合はここを空にしてください。空にして保存すると既定に戻ります。
                 </p>
                 <textarea
                   className="settings-prompt-textarea"

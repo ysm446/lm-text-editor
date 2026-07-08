@@ -154,11 +154,15 @@ class ReviewInlineRequest(BaseModel):
     text: str
     context_before: str | None = None
     context_after: str | None = None
+    strength: str = "medium"  # weak | medium | strong（校正の強さ）
+    style: str = "keep"  # keep | polite | plain（文体）
 
 
 class ReviewSplitRequest(BaseModel):
     blocks: list[str]
     outline: str | None = None
+    strength: str = "medium"
+    style: str = "keep"
 
 
 class ChatMessage(BaseModel):
@@ -670,7 +674,11 @@ async def review_inline(body: ReviewInlineRequest) -> StreamingResponse:
         raise HTTPException(status_code=400, detail="text is required")
     cfg = await _require_llm("review")
     messages = prompts.build_review_messages(
-        body.text, body.context_before, body.context_after
+        body.text,
+        body.context_before,
+        body.context_after,
+        strength=body.strength,
+        style=body.style,
     )
     return StreamingResponse(
         llm_client.stream_chat(
@@ -698,6 +706,8 @@ async def review_split(body: ReviewSplitRequest) -> StreamingResponse:
                 context_before=body.blocks[i - 1] if i > 0 else None,
                 context_after=body.blocks[i + 1] if i + 1 < len(body.blocks) else None,
                 outline=body.outline,
+                strength=body.strength,
+                style=body.style,
             )
             parts: list[str] = []
             async for chunk in llm_client.stream_chat(

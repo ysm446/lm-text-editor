@@ -3,23 +3,56 @@
 from backend import settings_store
 from backend.llm.client import Message
 
-# 校正のシステムプロンプトの既定値。設定 review_system_prompt が空ならこれを使う
+# 校正の基本方針（ペルソナ + 固定ルール）。設定 review_system_prompt が空ならこれを使う。
+# 「どこまで直すか（強さ）」「文体」は別軸として実行時に合成する（下の REVIEW_STRENGTH / REVIEW_STYLE）。
 REVIEW_SYSTEM = (
     "あなたは文章の校正者です。"
-    "与えられた「校正対象」の文章を、意味と事実関係を変えずに、"
-    "日本語として自然で読みやすい文章に校正してください。\n"
+    "与えられた「校正対象」の文章を、意味と事実関係を変えずに校正してください。\n"
     "ルール:\n"
     "- 校正後の本文のみを出力する。説明・前置き・引用符は一切書かない。\n"
     "- Markdown 記法・改行・コード・URL・専門用語はそのまま維持する。\n"
-    "- 修正が不要な箇所は変更しない。\n"
     "- 前後の文脈は参考情報であり、出力に含めない。"
 )
 
+# 校正の強さ（どこまで手を入れるか）。既定は "medium"。
+REVIEW_STRENGTH = {
+    "weak": (
+        "校正は最小限にとどめる。明らかな誤字・脱字・誤変換・文法の誤りだけを直し、"
+        "それ以外の表現・語順・言い回しは原文のまま変えない。"
+    ),
+    "medium": (
+        "日本語として自然で読みやすくなるよう整える。誤りの修正に加え、回りくどい表現や"
+        "不自然な語順は適度に直すが、原文の構成と要点はそのまま保つ。"
+    ),
+    "strong": (
+        "積極的に推敲する。意味と事実は保ったまま、冗長な箇所の圧縮・語順の入れ替え・"
+        "より的確な言い回しへの書き換えを行い、明快で読みやすい文章にする。"
+    ),
+}
 
-def review_system() -> str:
-    """設定で上書きされた校正システムプロンプト（空なら既定）。"""
+# 文体の揃え方。既定は "keep"（原文のまま）。
+REVIEW_STYLE = {
+    "keep": "文体（敬体／常体）は原文のまま維持する。",
+    "polite": "文末は敬体（です・ます調）に統一する。",
+    "plain": "文末は常体（だ・である調）に統一する。",
+}
+
+
+def review_system(strength: str = "medium", style: str = "keep") -> str:
+    """校正システムプロンプトを返す。
+
+    カスタム上書き（設定 review_system_prompt）と 2 軸（強さ・文体）は排他:
+    - カスタムが設定されていれば、それをそのまま使う（強さ・文体は無視）。
+      指示の二重化・矛盾を避けるため、合成はしない。
+    - カスタムが空なら、既定の基本方針に 強さ ＋ 文体 を合成する。
+      未知の値は既定（medium / keep）にフォールバックする。
+    """
     override = (settings_store.read().get("review_system_prompt") or "").strip()
-    return override or REVIEW_SYSTEM
+    if override:
+        return override
+    strength_clause = REVIEW_STRENGTH.get(strength, REVIEW_STRENGTH["medium"])
+    style_clause = REVIEW_STYLE.get(style, REVIEW_STYLE["keep"])
+    return f"{REVIEW_SYSTEM}\n- 校正の強さ: {strength_clause}\n- 文体: {style_clause}"
 
 
 CONTINUE_SYSTEM = (
@@ -113,6 +146,8 @@ def build_review_messages(
     context_before: str | None = None,
     context_after: str | None = None,
     outline: str | None = None,
+    strength: str = "medium",
+    style: str = "keep",
 ) -> list[Message]:
     parts: list[str] = []
     if outline:
@@ -123,6 +158,6 @@ def build_review_messages(
     if context_after:
         parts.append(f"## 後の文脈（参考）\n{context_after}")
     return [
-        {"role": "system", "content": review_system()},
+        {"role": "system", "content": review_system(strength, style)},
         {"role": "user", "content": "\n\n".join(parts)},
     ]

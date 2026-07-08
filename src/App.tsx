@@ -509,6 +509,7 @@ export default function App() {
                   }}
                   rightTab={rightTab}
                   onSetRightTab={setRightTab}
+                  hasCustomReviewPrompt={Boolean(settings?.review_system_prompt?.trim())}
                   titleSlot={
                     <input
                       className="doc-title"

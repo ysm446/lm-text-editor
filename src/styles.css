@@ -1592,6 +1592,35 @@ select:focus-visible {
   color: var(--accent);
 }
 
+/* 校正の強さ・文体セレクタ: ツールバーのボタンに寄せた見た目 */
+.editor-toolbar .review-option {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--fs-ui);
+  font-family: inherit;
+}
+
+.editor-toolbar .review-option:hover {
+  color: var(--text);
+  border-color: var(--accent-border);
+}
+
+.editor-toolbar .review-option:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.editor-toolbar .review-option:disabled {
+  color: var(--faint);
+  border-color: var(--border);
+  background: var(--hover);
+  cursor: default;
+}
+
 .editor-toolbar .save-btn {
   padding: 4px 14px;
 }
