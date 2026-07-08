@@ -39,6 +39,27 @@ def init_db() -> None:
         if "draft_json" not in cols:
             conn.execute("ALTER TABLE document ADD COLUMN draft_json TEXT")
             conn.execute("ALTER TABLE document ADD COLUMN draft_saved_at TEXT")
+        # asset を document_id 単位 → workspace_id 単位へ移行（画像をワークスペースで共有）。
+        # SQLite の DROP COLUMN は FK 列で不可なため、テーブルを作り直す。
+        # 親文書が既に消えている孤児行は JOIN で自然に落ちる（ファイルは workspace 削除時に掃除）。
+        acols = {r["name"] for r in conn.execute("PRAGMA table_info(asset)")}
+        if "document_id" in acols and "workspace_id" not in acols:
+            conn.executescript(
+                """
+                CREATE TABLE asset_new (
+                  id INTEGER PRIMARY KEY,
+                  workspace_id INTEGER NOT NULL REFERENCES workspace(id),
+                  rel_path TEXT NOT NULL,
+                  caption TEXT,
+                  created_at TEXT NOT NULL
+                );
+                INSERT INTO asset_new (id, workspace_id, rel_path, caption, created_at)
+                  SELECT a.id, d.workspace_id, a.rel_path, a.caption, a.created_at
+                  FROM asset a JOIN document d ON d.id = a.document_id;
+                DROP TABLE asset;
+                ALTER TABLE asset_new RENAME TO asset;
+                """
+            )
 
 
 # --- workspace ---
@@ -49,6 +70,14 @@ def list_workspaces() -> list[dict[str, Any]]:
             "SELECT id, name, created_at FROM workspace ORDER BY id"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_workspace(ws_id: int) -> dict[str, Any] | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, name, created_at FROM workspace WHERE id = ?", (ws_id,)
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def create_workspace(name: str) -> dict[str, Any]:
@@ -80,11 +109,11 @@ def delete_workspace(ws_id: int) -> bool:
         ]
         if doc_ids:
             ph = ",".join("?" * len(doc_ids))
-            conn.execute(f"DELETE FROM asset WHERE document_id IN ({ph})", doc_ids)
             conn.execute(
                 f"DELETE FROM document_revision WHERE document_id IN ({ph})", doc_ids
             )
             conn.execute(f"DELETE FROM document WHERE id IN ({ph})", doc_ids)
+        conn.execute("DELETE FROM asset WHERE workspace_id = ?", (ws_id,))
         cur = conn.execute("DELETE FROM workspace WHERE id = ?", (ws_id,))
         return cur.rowcount > 0
 
@@ -214,23 +243,16 @@ def get_revision(revision_id: int) -> dict[str, Any] | None:
 
 
 def delete_doc(doc_id: int) -> dict[str, Any] | None:
-    """文書とアセット・リビジョンを削除。画像ファイル掃除用の情報を返す。"""
+    """文書とリビジョンを削除する。画像はワークスペース共有なので消さない。"""
     with get_conn() as conn:
         row = conn.execute(
             "SELECT workspace_id FROM document WHERE id = ?", (doc_id,)
         ).fetchone()
         if row is None:
             return None
-        rel_paths = [
-            r["rel_path"]
-            for r in conn.execute(
-                "SELECT rel_path FROM asset WHERE document_id = ?", (doc_id,)
-            )
-        ]
-        conn.execute("DELETE FROM asset WHERE document_id = ?", (doc_id,))
         conn.execute("DELETE FROM document_revision WHERE document_id = ?", (doc_id,))
         conn.execute("DELETE FROM document WHERE id = ?", (doc_id,))
-    return {"workspace_id": row["workspace_id"], "rel_paths": rel_paths}
+    return {"workspace_id": row["workspace_id"]}
 
 
 def update_doc(
@@ -264,9 +286,8 @@ def update_doc(
 def list_workspace_images(workspace_id: int) -> list[dict[str, Any]]:
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT a.id, a.document_id, a.rel_path, a.caption, a.created_at"
-            " FROM asset a JOIN document d ON d.id = a.document_id"
-            " WHERE d.workspace_id = ? ORDER BY a.id DESC",
+            "SELECT id, workspace_id, rel_path, caption, created_at"
+            " FROM asset WHERE workspace_id = ? ORDER BY id DESC",
             (workspace_id,),
         ).fetchall()
     return [dict(r) for r in rows]
@@ -276,8 +297,7 @@ def delete_asset(asset_id: int) -> dict[str, Any] | None:
     """asset 行を削除し、ファイル掃除用の情報を返す。"""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT a.rel_path, d.workspace_id FROM asset a"
-            " JOIN document d ON d.id = a.document_id WHERE a.id = ?",
+            "SELECT rel_path, workspace_id FROM asset WHERE id = ?",
             (asset_id,),
         ).fetchone()
         if row is None:
@@ -288,19 +308,19 @@ def delete_asset(asset_id: int) -> dict[str, Any] | None:
 
 
 def create_asset(
-    document_id: int, rel_path: str, caption: str | None = None
+    workspace_id: int, rel_path: str, caption: str | None = None
 ) -> dict[str, Any]:
     now = _now()
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO asset (document_id, rel_path, caption, created_at)"
+            "INSERT INTO asset (workspace_id, rel_path, caption, created_at)"
             " VALUES (?, ?, ?, ?)",
-            (document_id, rel_path, caption, now),
+            (workspace_id, rel_path, caption, now),
         )
         asset_id = cur.lastrowid
     return {
         "id": asset_id,
-        "document_id": document_id,
+        "workspace_id": workspace_id,
         "rel_path": rel_path,
         "caption": caption,
         "created_at": now,

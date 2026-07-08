@@ -28,9 +28,10 @@ CREATE TABLE IF NOT EXISTS document_revision (
   created_at TEXT NOT NULL
 );
 
+-- 画像はワークスペース単位で共有する（複数文書から参照でき、文書削除では消えない）。
 CREATE TABLE IF NOT EXISTS asset (
   id INTEGER PRIMARY KEY,
-  document_id INTEGER NOT NULL REFERENCES document(id),
+  workspace_id INTEGER NOT NULL REFERENCES workspace(id),
   rel_path TEXT NOT NULL,          -- ワークスペース基準の相対パス
   caption TEXT,
   created_at TEXT NOT NULL

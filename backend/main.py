@@ -179,7 +179,7 @@ class ChatRequest(BaseModel):
 
 
 class AssetCreate(BaseModel):
-    document_id: int
+    workspace_id: int
     filename: str
     data_base64: str
     caption: str | None = None
@@ -315,14 +315,9 @@ def get_revision(revision_id: int) -> dict[str, Any]:
 
 @app.delete("/docs/{doc_id}")
 def delete_doc(doc_id: int) -> dict[str, bool]:
-    info = models.delete_doc(doc_id)
-    if info is None:
+    # 画像はワークスペース共有なので、文書削除ではファイルを消さない。
+    if models.delete_doc(doc_id) is None:
         raise HTTPException(status_code=404, detail="document not found")
-    ws_dir = paths.workspace_files_dir() / str(info["workspace_id"])
-    for rel in info["rel_paths"]:
-        target = (ws_dir / rel).resolve()
-        if ws_dir.resolve() in target.parents and target.is_file():
-            target.unlink(missing_ok=True)
     return {"ok": True}
 
 
@@ -744,9 +739,8 @@ def delete_asset(asset_id: int) -> dict[str, bool]:
 
 @app.post("/assets")
 def create_asset(body: AssetCreate) -> dict[str, Any]:
-    doc = models.get_doc(body.document_id)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="document not found")
+    if models.get_workspace(body.workspace_id) is None:
+        raise HTTPException(status_code=404, detail="workspace not found")
     try:
         data = base64.b64decode(body.data_base64, validate=True)
     except (binascii.Error, ValueError):
@@ -754,12 +748,12 @@ def create_asset(body: AssetCreate) -> dict[str, Any]:
 
     ext = Path(body.filename).suffix.lower() or ".png"
     name = f"{uuid.uuid4().hex}{ext}"
-    workspace_id = doc["workspace_id"]
+    workspace_id = body.workspace_id
     rel_path = f"images/{name}"
 
     img_dir = paths.workspace_files_dir() / str(workspace_id) / "images"
     img_dir.mkdir(parents=True, exist_ok=True)
     (img_dir / name).write_bytes(data)
 
-    asset = models.create_asset(body.document_id, rel_path, body.caption)
+    asset = models.create_asset(workspace_id, rel_path, body.caption)
     return {**asset, "url": f"/files/{workspace_id}/{rel_path}"}

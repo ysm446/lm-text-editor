@@ -1,7 +1,7 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-08 14:00
+更新日時: 2026-07-09 00:30
 
 ## 現在の状態
 
@@ -103,6 +103,13 @@
   - 挿入は tiptap-markdown で Markdown をパースして本文へ。置換は本文の選択範囲へ。選択が無いと「置換」は無効。
   - チャット履歴はエディタインスタンス内（ドキュメント単位・セッション限り。永続化なし）。document_md は毎ターン全文を送る（16k 既定内なら問題なし。肥大化時の間引きは将来検討）。
   - 検証: `npm run build` 通過 / `py_compile` OK / `prompts.build_chat_messages` を単体実行して構造確認。実 LLM との対話確認は未実施（backend 停止中のため。`LM_KEEP_BACKEND=1 npm run dev` で目視予定）。
+
+- 2026-07-09 画像をワークスペース単位へ統一（ユーザー要望）:
+  - 以前は物理配置・配信 URL はワークスペース単位（`data/workspaces/<id>/images/`）なのに、`asset` テーブルだけ `document_id` に紐付く二重状態だった。サイドバーは全画像をワークスペース横断で並べ任意文書へ挿入できるため、「文書 A でアップした画像を文書 B に挿入 → A を削除」でファイルごと消え B がリンク切れになる不整合があった。
+  - スキーマ: `asset.document_id` → `asset.workspace_id`（`schema.sql`）。`models.init_db` に移行を追加（SQLite は FK 列を DROP COLUMN できないため `asset` を作り直し、`document JOIN` で workspace_id を埋め、親文書の無い孤児行は移行時に落とす。べき等）。
+  - backend: `AssetCreate.workspace_id` 化、`POST /assets` は workspace 存在チェックに変更、`create_asset` / `list_workspace_images` / `delete_asset` を workspace_id ベースへ。`delete_doc` は画像を消さない（ファイル掃除は workspace 削除時の `shutil.rmtree` のみ）。`models.get_workspace` を追加。
+  - frontend: `Asset` / `WorkspaceImage` / `uploadAsset` を workspace_id 化。画像追加は文書未オープンでも可（`canAddImages` を `currentDoc != null` → `currentWsId != null`）。`Editor` に `workspaceId` prop 追加。
+  - 検証: 一時ライブラリで旧スキーマ DB を作り移行テスト（正常 2 件が正しい workspace_id へ、孤児 1 件は削除、document_id 列は消滅、CRUD とべき等性 OK）。`npm run build`（tsc + vite）通過、`py_compile` OK。実アプリでの画像追加/削除の目視は未実施。
 
 - 2026-07-07 フェーズ 4 Web 検索:
   - manager を 2 スロット化（gemma :8080 / ornith :8081）。モデルバーに「検索LLM」の起動/停止を追加。

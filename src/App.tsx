@@ -335,7 +335,7 @@ export default function App() {
 
   const addImageFiles = useCallback(
     async (files: FileList) => {
-      if (!currentDoc) return
+      if (currentWsId == null) return
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('image/')) continue
         const base64 = await new Promise<string>((resolve, reject) => {
@@ -345,7 +345,7 @@ export default function App() {
           reader.readAsDataURL(file)
         })
         await api.uploadAsset({
-          document_id: currentDoc.id,
+          workspace_id: currentWsId,
           filename: file.name || 'image.png',
           data_base64: base64,
         })
@@ -353,7 +353,7 @@ export default function App() {
       showToast('画像を追加しました')
       void refreshWorkspaceAssets(currentWsId)
     },
-    [currentDoc, currentWsId, refreshWorkspaceAssets],
+    [currentWsId, refreshWorkspaceAssets],
   )
 
   const deleteImage = useCallback(
@@ -445,7 +445,7 @@ export default function App() {
           )
         }
         onDeleteSource={(s) => void deleteSource(s)}
-        canAddImages={currentDoc != null}
+        canAddImages={currentWsId != null}
         onAddImageFiles={(files) => void addImageFiles(files)}
         onViewImage={setViewingImage}
         onDeleteImage={(img) => void deleteImage(img)}
@@ -499,6 +499,7 @@ export default function App() {
                 <Editor
                   key={currentDoc.id}
                   docId={currentDoc.id}
+                  workspaceId={currentDoc.workspace_id}
                   initialContent={currentDoc.content_json}
                   draft={currentDoc.draft_json}
                   draftSavedAt={currentDoc.draft_saved_at}

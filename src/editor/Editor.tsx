@@ -30,6 +30,7 @@ const CONTINUE_AFTER_CHARS = 500
 
 interface EditorProps {
   docId: number
+  workspaceId: number // 画像はワークスペース単位で保存する
   initialContent: unknown
   draft: unknown | null // 前回の未保存編集（ドラフト退避）
   draftSavedAt: string | null
@@ -125,6 +126,7 @@ function buildOutline(doc: PMNode): string {
 // 1 ドキュメント = 1 インスタンス。App 側で key={docId} を付けて切替時に作り直す。
 export default function Editor({
   docId,
+  workspaceId,
   initialContent,
   draft,
   draftSavedAt,
@@ -264,7 +266,7 @@ export default function Editor({
 
   const uploadAndInsert = async (file: File) => {
     const asset = await api.uploadAsset({
-      document_id: docId,
+      workspace_id: workspaceId,
       filename: file.name || 'image.png',
       data_base64: await fileToBase64(file),
     })

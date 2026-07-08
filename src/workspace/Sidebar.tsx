@@ -234,7 +234,7 @@ interface SidebarProps {
   onWebSearch: () => void // Web 検索パネルを開く
   onViewSource: (source: RagSource) => void
   onDeleteSource: (source: RagSource) => void
-  canAddImages: boolean // 画像はドキュメントに紐づくため、ドキュメントを開いているときのみ
+  canAddImages: boolean // 画像はワークスペース単位。ワークスペースを開いているときのみ
   onAddImageFiles: (files: FileList) => void
   onViewImage: (image: WorkspaceImage) => void
   onDeleteImage: (image: WorkspaceImage) => void

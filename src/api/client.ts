@@ -37,7 +37,7 @@ export interface Revision extends RevisionMeta {
 
 export interface Asset {
   id: number
-  document_id: number
+  workspace_id: number
   rel_path: string
   caption: string | null
   created_at: string
@@ -93,7 +93,7 @@ export interface SourceDetail {
 
 export interface WorkspaceImage {
   id: number
-  document_id: number
+  workspace_id: number
   rel_path: string
   caption: string | null
   created_at: string
@@ -377,7 +377,7 @@ export const api = {
     }),
 
   uploadAsset: async (body: {
-    document_id: number
+    workspace_id: number
     filename: string
     data_base64: string
   }): Promise<Asset> => {
