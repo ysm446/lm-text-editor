@@ -1693,7 +1693,7 @@ select:focus-visible {
 }
 
 .dirty-indicator {
-  color: var(--warn);
+  color: var(--muted);
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
@@ -1716,9 +1716,10 @@ select:focus-visible {
   gap: 12px;
   margin: 0 0 12px;
   padding: 10px 16px;
-  border: 1px solid var(--warn);
-  background: var(--warn-bg);
+  border: 1px solid var(--border);
+  background: var(--surface);
   border-radius: var(--radius-l);
+  box-shadow: var(--shadow-1);
   font-size: var(--fs-ui);
 }
 
