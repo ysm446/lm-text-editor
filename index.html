@@ -4,6 +4,33 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>lm-text-editor</title>
+    <script>
+      // バンドル読み込み前にキャッシュ済みテーマを適用（起動時の白画面防止）
+      try {
+        var t = localStorage.getItem('lm-editor.theme')
+        if (t) document.documentElement.dataset.theme = t
+      } catch (e) {}
+    </script>
+    <style>
+      /* styles.css 到着前のプレースホルダ背景。値は styles.css の --bg と揃える */
+      html {
+        background: #f2f3f5;
+      }
+      html[data-theme='dark'] {
+        background: #191919;
+      }
+      #root:empty::after {
+        content: '起動中…';
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, sans-serif;
+        font-size: 14px;
+        color: #8a8a8a;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

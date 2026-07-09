@@ -49,11 +49,30 @@ async function saveScreenshot(win: BrowserWindow) {
   }
 }
 
+// 起動直後の素ウィンドウがテーマと乖離しないよう、backend の設定ファイルから
+// テーマを読んで背景色を決める（読めなければ既定の dark）。
+// 値は src/styles.css の --bg と揃える
+function initialBackgroundColor(): string {
+  try {
+    const raw = fs.readFileSync(
+      path.join(__dirname, '..', 'data', 'settings.json'),
+      'utf-8',
+    )
+    const settings = JSON.parse(raw) as { theme?: string }
+    if (settings.theme === 'light') return '#f2f3f5'
+  } catch {
+    // 設定ファイル未作成なら backend 既定（dark）に合わせる
+  }
+  return '#191919'
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1920,
     height: 1080,
     useContentSize: true, // コンテンツ領域を 1920x1080 にする（枠込みではなく）
+    show: false, // 最初の描画が済むまで隠す（起動時の白画面防止）
+    backgroundColor: initialBackgroundColor(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -104,6 +123,15 @@ function createWindow() {
       void shell.openExternal(url)
     }
   })
+
+  // 最初の描画（index.html のテーマ背景）が済んでから表示する。
+  // dev で Vite の初回変換が長引いても隠れたままにならないよう保険を掛ける
+  mainWindow.once('ready-to-show', () => mainWindow?.show())
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show()
+    }
+  }, 3000)
 
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL)
