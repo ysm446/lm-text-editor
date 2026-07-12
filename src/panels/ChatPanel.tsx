@@ -155,17 +155,15 @@ export default function ChatPanel({
           }}
         />
         <div className="chat-panel-input-row">
-          <label
-            className="assist-rag-toggle"
+          <button
+            type="button"
+            className={`rag-toggle-btn${useRag ? ' active' : ''}`}
+            aria-pressed={useRag}
             title="RAG（過去記事・リファレンス・Web 取得資料）を検索して文脈に含めます"
+            onClick={() => setUseRag((v) => !v)}
           >
-            <input
-              type="checkbox"
-              checked={useRag}
-              onChange={(e) => setUseRag(e.target.checked)}
-            />
             RAG
-          </label>
+          </button>
           <button className="primary" disabled={chat.streaming || !input.trim()} onClick={send}>
             {chat.streaming ? '応答中…' : '送信'}
           </button>
