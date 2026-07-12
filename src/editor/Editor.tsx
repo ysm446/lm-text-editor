@@ -302,6 +302,21 @@ export default function Editor({
     content: initialContent ?? undefined,
     autofocus: 'end',
     editorProps: {
+      handleDOMEvents: {
+        copy(view, event) {
+          const { from, to, empty } = view.state.selection
+          const clipboard = (event as ClipboardEvent).clipboardData
+          if (empty || !clipboard) return false
+
+          // HTML の ProseMirror スライスを同じエディタへ貼り戻すと、選択境界の
+          // 段落構造まで復元されて前後に余分な空白が入るため、本文コピーは平文に統一する。
+          const text = view.state.doc.textBetween(from, to, '\n\n')
+          clipboard.clearData()
+          clipboard.setData('text/plain', text)
+          event.preventDefault()
+          return true
+        },
+      },
       handlePaste(_view, event) {
         const files = imageFiles(event.clipboardData?.files)
         if (files.length === 0) return false
