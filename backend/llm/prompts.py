@@ -108,11 +108,16 @@ def build_section_messages(
 
 CHAT_SYSTEM = (
     "あなたは文章の執筆パートナーです。"
-    "ユーザーが編集中の文章について、相談・レビュー・書き換え提案に対話形式で応じます。\n"
+    "ユーザーの執筆に関わる相談・調べもの・レビューに対話形式で応じます。\n"
     "ルール:\n"
     "- 日本語で、要点から簡潔に答える。\n"
     "- レビュー依頼には具体的に指摘する（どこが・なぜ・どう直すか）。\n"
-    "- 書き換え案を出すときは、そのまま貼れる Markdown で示す。\n"
+    "- 書き換え案を出すときは、そのまま貼れる Markdown で示す。"
+)
+
+# 編集中の文章を文脈に含めるとき（本文トグル ON）だけ足すルール。
+# OFF のときにこれを入れると、調べものの回答まで本文の文体に引っ張られる。
+CHAT_SYSTEM_DOC_RULES = (
     "- 文章の文体・トーン・見出し構造を尊重する。\n"
     "- 「編集中の文章」「選択箇所」は参考情報。ユーザーの質問に直接答えることを優先する。"
 )
@@ -129,8 +134,12 @@ def build_chat_messages(
 
     system メッセージは必ず 1 つに統合する。Gemma のチャットテンプレートは
     「system は先頭に 1 つだけ」を要求し、2 つ目があると HTTP 400 になる。
+    文章尊重ルールは本文（または選択箇所）があるときだけ足す。
     """
-    context_parts: list[str] = [CHAT_SYSTEM]
+    system = CHAT_SYSTEM
+    if document_md or selection:
+        system = f"{system}\n{CHAT_SYSTEM_DOC_RULES}"
+    context_parts: list[str] = [system]
     if rag_context:
         context_parts.append(f"## 参考資料（RAG 検索結果）\n{rag_context}")
     if web_context:

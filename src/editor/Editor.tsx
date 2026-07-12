@@ -561,12 +561,19 @@ export default function Editor({
     onSetRightTab(null) // 挿入後はペインを閉じる
   }
 
-  // チャット: 本文（+ 選択範囲）を文脈にマルチターン対話する
-  const sendChat = async (text: string, useRag: boolean, useWeb: boolean) => {
+  // チャット: 本文（+ 選択範囲）を文脈にマルチターン対話する。
+  // useDoc=false なら本文・選択範囲を送らない（本文と無関係な調べもの用。応答も速くなる）
+  const sendChat = async (
+    text: string,
+    useDoc: boolean,
+    useRag: boolean,
+    useWeb: boolean,
+  ) => {
     const ed = editorRef.current
     if (!ed || chat.streaming) return
     const { from, to } = ed.state.selection
-    const selection = from !== to ? ed.state.doc.textBetween(from, to, '\n') : null
+    const selection =
+      useDoc && from !== to ? ed.state.doc.textBetween(from, to, '\n') : null
     const history = [...chat.messages, { role: 'user' as const, content: text }]
     // assistant のプレースホルダを足し、ストリームで中身を埋める
     setChat({
@@ -590,7 +597,7 @@ export default function Editor({
       for await (const chunk of streamText('/chat', {
         messages: history,
         doc_id: docId,
-        document_md: getMarkdown(),
+        document_md: useDoc ? getMarkdown() : null,
         selection,
         use_rag: useRag,
         use_web: useWeb,
@@ -833,7 +840,9 @@ export default function Editor({
           <ChatPanel
             chat={chat}
             workspaceId={workspaceId}
-            onSend={(text, useRag, useWeb) => void sendChat(text, useRag, useWeb)}
+            onSend={(text, useDoc, useRag, useWeb) =>
+              void sendChat(text, useDoc, useRag, useWeb)
+            }
             onClear={chatClear}
             onClose={() => onSetRightTab(null)}
             onRagChanged={onRagChanged}

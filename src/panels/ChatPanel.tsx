@@ -72,7 +72,7 @@ export interface ChatState {
 interface ChatPanelProps {
   chat: ChatState
   workspaceId: number // チャット→資料（ノート）保存に使う
-  onSend: (text: string, useRag: boolean, useWeb: boolean) => void
+  onSend: (text: string, useDoc: boolean, useRag: boolean, useWeb: boolean) => void
   onClear: () => void
   onClose: () => void
   onRagChanged?: () => void // 資料へ保存した後にサイドバーを更新する
@@ -94,6 +94,7 @@ export default function ChatPanel({
   onRagChanged,
 }: ChatPanelProps) {
   const [input, setInput] = useState('')
+  const [useDoc, setUseDoc] = useState(true) // 既定 ON（編集中の文章を文脈に含める）
   const [useRag, setUseRag] = useState(true) // 既定 ON（過去記事・資料を文脈に含める）
   const [useWeb, setUseWeb] = useState(false) // 既定 OFF（明示的に ON にしたときだけ検索）
   const [saveTarget, setSaveTarget] = useState<SaveTarget | null>(null)
@@ -108,7 +109,7 @@ export default function ChatPanel({
   const send = () => {
     const text = input.trim()
     if (!text || chat.streaming) return
-    onSend(text, useRag, useWeb)
+    onSend(text, useDoc, useRag, useWeb)
     setInput('')
   }
 
@@ -208,6 +209,15 @@ export default function ChatPanel({
           }}
         />
         <div className="chat-panel-input-row">
+          <button
+            type="button"
+            className={`rag-toggle-btn${useDoc ? ' active' : ''}`}
+            aria-pressed={useDoc}
+            title="編集中の文章（全文 + 選択範囲）を文脈に含めます。OFF にすると本文と無関係な調べものができます"
+            onClick={() => setUseDoc((v) => !v)}
+          >
+            本文
+          </button>
           <button
             type="button"
             className={`rag-toggle-btn${useRag ? ' active' : ''}`}
