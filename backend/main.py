@@ -7,6 +7,7 @@ import asyncio
 import base64
 import binascii
 import json
+import logging
 import os
 import shutil
 import threading
@@ -26,11 +27,14 @@ from backend.db import models
 from backend.llm import client as llm_client
 from backend.llm import manager as llm_manager
 from backend.llm import prompts
+from backend.llm import think_parser
 from backend.rag import embed as rag_embed
 from backend.rag import search as rag_search
 from backend.rag import store as rag_store
 from backend.websearch import ingest as web_ingest
 from backend.websearch import search as web_search
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -176,6 +180,11 @@ class ChatRequest(BaseModel):
     document_md: str | None = None  # 編集中の記事全文（文脈）
     selection: str | None = None  # ユーザーが選択している箇所（あれば）
     use_rag: bool = False  # 直近のユーザー発話で hybrid search して文脈に含める
+    use_web: bool = False  # 直近のユーザー発話で Web 検索し、スニペットを文脈に含める
+
+
+class NoteMergeRequest(BaseModel):
+    content: str  # 既存ノートに統合したい新情報（Markdown）
 
 
 class AssetCreate(BaseModel):
@@ -534,6 +543,44 @@ def update_note_endpoint(note_id: int, body: NoteUpdateRequest) -> dict[str, Any
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@app.post("/rag/note/{note_id}/merge")
+async def merge_note_endpoint(note_id: int, body: NoteMergeRequest) -> dict[str, Any]:
+    """既存ノートに新情報を LLM で統合した Markdown を返す（保存はしない）。
+
+    保存はフロントがプレビュー確認後に PUT /rag/note/{id} で行う（上書き事故防止）。
+    """
+    if not body.content.strip():
+        raise HTTPException(status_code=400, detail="content is required")
+    note = rag_store.get_note(note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="note not found")
+    cfg = await _require_llm("generate")
+    raw = await llm_client.chat(
+        cfg["base_url"],
+        prompts.build_note_merge_messages(note["title"], note["content"], body.content),
+        temperature=0.3,
+        max_tokens=4096,
+    )
+    merged = think_parser.strip_think(raw)
+    if not merged.strip():
+        raise HTTPException(status_code=502, detail="LLM の統合結果が空でした")
+    return {"note_id": note_id, "title": note["title"], "merged": merged}
+
+
+@app.get("/rag/note/{note_id}/revisions")
+def list_note_revisions_endpoint(note_id: int) -> list[dict[str, Any]]:
+    """ノートの世代履歴（新しい順・メタのみ）。"""
+    return rag_store.list_note_revisions(note_id)
+
+
+@app.get("/rag/note/{note_id}/revisions/{revision_id}")
+def get_note_revision_endpoint(note_id: int, revision_id: int) -> dict[str, Any]:
+    rev = rag_store.get_note_revision(note_id, revision_id)
+    if rev is None:
+        raise HTTPException(status_code=404, detail="revision not found")
+    return rev
+
+
 @app.post("/generate/continue")
 async def generate_continue(body: GenerateContinueRequest) -> StreamingResponse:
     """カーソル位置からの続き生成。Markdown を平文でストリーム返却。"""
@@ -584,14 +631,18 @@ async def generate_section(body: GenerateSectionRequest) -> StreamingResponse:
 async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
     """文書を文脈にしたマルチターン対話（レビュー・相談）。応答を平文でストリーム返却。
 
-    RAG は use_rag のときだけ直近のユーザー発話で hybrid search する（明示発火）。
-    Web 検索・function calling は未対応（フェーズ 7 の後続で検討）。
+    RAG / Web 検索は use_rag / use_web のときだけ直近のユーザー発話で発火する（明示制御）。
+    Web 検索はスニペットのみを文脈に使う（ページ取得・RAG 保存はしない。取り込みは
+    Web 検索パネルの「取り込む」で明示的に行う）。function calling は未対応。
     """
     if not body.messages:
         raise HTTPException(status_code=400, detail="messages is required")
     cfg = await _require_llm("generate")
 
     history = [{"role": m.role, "content": m.content} for m in body.messages]
+    query = next(
+        (m["content"] for m in reversed(history) if m["role"] == "user"), ""
+    )
 
     rag_context: str | None = None
     if body.use_rag:
@@ -600,40 +651,68 @@ async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
             doc = models.get_doc(body.doc_id)
             if doc:
                 workspace_id = doc["workspace_id"]
-        query = next(
-            (m["content"] for m in reversed(history) if m["role"] == "user"), ""
-        )
         if query.strip():
             results = await asyncio.to_thread(
                 rag_search.hybrid_search, query, workspace_id, 5
             )
             rag_context = rag_search.build_rag_context(results) or None
 
+    web_context: str | None = None
+    web_sources: list[dict[str, Any]] = []
+    web_queries: list[str] = []
+    if body.use_web and query.strip():
+        try:
+            web = await web_search.search(query, max_results=6)
+            web_sources = web["results"]
+            web_queries = web["queries"]
+            web_context = prompts.build_web_context(web_sources) or None
+        except Exception as exc:
+            # 検索失敗でチャット自体は止めない（検索なしで続行）
+            logger.warning("chat web search failed: %s", exc)
+
     messages = prompts.build_chat_messages(
-        history, body.document_md, body.selection, rag_context
+        history, body.document_md, body.selection, rag_context, web_context
     )
 
     async def gen():
-        """本文差分（{"delta": ...}）を NDJSON で流し、最後に生成統計を
+        """Web 検索を使った場合はまず出典（{"sources": ...}）を 1 行流し、
+        本文差分（{"delta": ...}）を逐次、最後に生成統計を
         {"done": true, tokens, elapsed, tps, finish_reason} で 1 行返す。"""
+        if body.use_web:
+            yield json.dumps(
+                {
+                    "sources": [
+                        {"title": s["title"], "url": s["url"]} for s in web_sources
+                    ],
+                    "queries": web_queries,
+                },
+                ensure_ascii=False,
+            ) + "\n"
         start = time.perf_counter()
         finish_reason: str | None = None
         usage: dict[str, Any] | None = None
         timings: dict[str, Any] | None = None
-        async for chunk in llm_client.stream_chat_events(
-            cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=2048
-        ):
-            choices = chunk.get("choices") or []
-            if choices:
-                delta = choices[0].get("delta", {}).get("content")
-                if delta:
-                    yield json.dumps({"delta": delta}, ensure_ascii=False) + "\n"
-                if choices[0].get("finish_reason"):
-                    finish_reason = choices[0]["finish_reason"]
-            if chunk.get("usage"):
-                usage = chunk["usage"]
-            if chunk.get("timings"):
-                timings = chunk["timings"]
+        try:
+            async for chunk in llm_client.stream_chat_events(
+                cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=2048
+            ):
+                choices = chunk.get("choices") or []
+                if choices:
+                    delta = choices[0].get("delta", {}).get("content")
+                    if delta:
+                        yield json.dumps({"delta": delta}, ensure_ascii=False) + "\n"
+                    if choices[0].get("finish_reason"):
+                        finish_reason = choices[0]["finish_reason"]
+                if chunk.get("usage"):
+                    usage = chunk["usage"]
+                if chunk.get("timings"):
+                    timings = chunk["timings"]
+        except Exception as exc:
+            # ストリーム開始後は HTTP エラーを返せないため、エラーも NDJSON の 1 行で
+            # 返す（黙って切断するとフロントには "network error" しか見えない）
+            logger.exception("chat streaming failed")
+            yield json.dumps({"error": str(exc)}, ensure_ascii=False) + "\n"
+            return
 
         elapsed = time.perf_counter() - start
         tokens = (usage or {}).get("completion_tokens")

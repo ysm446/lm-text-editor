@@ -123,22 +123,71 @@ def build_chat_messages(
     document_md: str | None = None,
     selection: str | None = None,
     rag_context: str | None = None,
+    web_context: str | None = None,
 ) -> list[Message]:
-    """マルチターン会話。文書・選択範囲・RAG を system の文脈として先頭に差し込む。"""
-    messages: list[Message] = [{"role": "system", "content": CHAT_SYSTEM}]
-    context_parts: list[str] = []
+    """マルチターン会話。文書・選択範囲・RAG・Web 検索を system の文脈として先頭に差し込む。
+
+    system メッセージは必ず 1 つに統合する。Gemma のチャットテンプレートは
+    「system は先頭に 1 つだけ」を要求し、2 つ目があると HTTP 400 になる。
+    """
+    context_parts: list[str] = [CHAT_SYSTEM]
     if rag_context:
         context_parts.append(f"## 参考資料（RAG 検索結果）\n{rag_context}")
+    if web_context:
+        context_parts.append(
+            "## Web 検索結果（参考）\n"
+            "以下は直近の質問に対する Web 検索のスニペットです。"
+            "これを参考にする場合は、どの情報がどの URL に基づくか分かるように答えてください。\n\n"
+            f"{web_context}"
+        )
     if document_md:
         context_parts.append(f"## 編集中の文章（全文・参考）\n{document_md}")
     if selection:
         context_parts.append(f"## ユーザーが選択している箇所\n{selection}")
-    if context_parts:
-        messages.append({"role": "system", "content": "\n\n".join(context_parts)})
+    messages: list[Message] = [
+        {"role": "system", "content": "\n\n".join(context_parts)}
+    ]
     messages.extend(
         {"role": m["role"], "content": m["content"]} for m in history
     )
     return messages
+
+
+def build_web_context(results: list[dict]) -> str:
+    """Web 検索結果（title / url / snippet）をチャット文脈用のテキストに整形する。"""
+    parts = []
+    for i, r in enumerate(results, 1):
+        parts.append(
+            f"[{i}] {r.get('title', '')}\nURL: {r.get('url', '')}\n抜粋: {r.get('snippet', '')}"
+        )
+    return "\n\n".join(parts)
+
+
+# トピックノートのまとめなおし（既存ノート + 新情報 → 統合 Markdown）。
+# 出典の追跡性を保つルールをプロンプトに焼き込む（削らない・URL と日付を蓄積）。
+NOTE_MERGE_SYSTEM = (
+    "あなたは調査ノートの編集者です。"
+    "「既存ノート」に「新情報」を統合した Markdown を出力してください。\n"
+    "ルール:\n"
+    "- 既存ノートの情報・構成・見出しをできるだけ保つ。既存の記述を勝手に削除・要約しない。\n"
+    "- 新情報は適切なセクションに組み込む。矛盾する場合は両論併記し、新旧が分かるようにする。\n"
+    "- ノート末尾に「## 参考」セクションを維持する。既存の参考 URL・日付は消さず、"
+    "新情報の出典 URL・日付を追記する。\n"
+    "- 統合後のノート本文（Markdown）のみを出力する。説明・前置きは書かない。"
+)
+
+
+def build_note_merge_messages(
+    note_title: str, note_content: str, new_content: str
+) -> list[Message]:
+    user = (
+        f"## 既存ノート: {note_title}\n{note_content or '（まだ本文はありません）'}\n\n"
+        f"## 新情報\n{new_content}"
+    )
+    return [
+        {"role": "system", "content": NOTE_MERGE_SYSTEM},
+        {"role": "user", "content": user},
+    ]
 
 
 def build_review_messages(

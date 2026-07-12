@@ -53,6 +53,17 @@ async def chat(
         return msg.get("content") or ""
 
 
+async def _raise_with_body(res: httpx.Response) -> None:
+    """ストリーミング応答がエラーステータスのとき、本文（llama.cpp のエラー理由）を
+    含む例外を投げる。raise_for_status() だけだと理由が分からない（例: 文脈長オーバー）。"""
+    if res.status_code < 400:
+        return
+    body = (await res.aread()).decode("utf-8", "replace")
+    raise RuntimeError(
+        f"LLM サーバがエラーを返しました (HTTP {res.status_code}): {body[:500]}"
+    )
+
+
 async def stream_chat(
     base_url: str,
     messages: list[Message],
@@ -74,7 +85,7 @@ async def stream_chat(
         async with client.stream(
             "POST", f"{base_url}/chat/completions", json=payload
         ) as res:
-            res.raise_for_status()
+            await _raise_with_body(res)
             async for line in res.aiter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -116,7 +127,7 @@ async def stream_chat_events(
         async with client.stream(
             "POST", f"{base_url}/chat/completions", json=payload
         ) as res:
-            res.raise_for_status()
+            await _raise_with_body(res)
             async for line in res.aiter_lines():
                 if not line.startswith("data: "):
                     continue

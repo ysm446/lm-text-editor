@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { api, type RagSource, type SourceDetail } from '../api/client'
+import {
+  api,
+  type NoteRevisionMeta,
+  type RagSource,
+  type SourceDetail,
+} from '../api/client'
 
 interface SourceViewerProps {
   workspaceId: number
@@ -35,6 +40,10 @@ export default function SourceViewer({
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // 世代履歴（更新時に旧本文が退避される。読み込み → 保存で復元が確定する）
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [revisions, setRevisions] = useState<NoteRevisionMeta[] | null>(null)
+
   useEffect(() => {
     setError(null)
     if (editable && source.note_id != null) {
@@ -64,11 +73,43 @@ export default function SourceViewer({
     try {
       await api.updateNote(source.note_id, title.trim() || '無題', content)
       setDirty(false)
+      setRevisions(null) // 保存で世代が増えている可能性があるので次回開くとき再取得
       onSaved()
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const toggleHistory = async () => {
+    if (source.note_id == null) return
+    const next = !historyOpen
+    setHistoryOpen(next)
+    if (next && revisions == null) {
+      try {
+        setRevisions(await api.listNoteRevisions(source.note_id))
+      } catch (e) {
+        setError(String(e instanceof Error ? e.message : e))
+      }
+    }
+  }
+
+  const loadRevision = async (rev: NoteRevisionMeta) => {
+    if (source.note_id == null) return
+    if (
+      dirty &&
+      !window.confirm('未保存の変更があります。破棄して履歴を読み込みますか？')
+    )
+      return
+    try {
+      const full = await api.getNoteRevision(source.note_id, rev.id)
+      setTitle(full.title)
+      setContent(full.content)
+      setDirty(true) // 「保存」で復元が確定する
+      setHistoryOpen(false)
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e))
     }
   }
 
@@ -103,9 +144,36 @@ export default function SourceViewer({
           >
             {saving ? '保存中…' : '保存'}
           </button>
+          <button
+            onClick={() => void toggleHistory()}
+            title="更新前の本文（世代履歴）を表示します"
+          >
+            履歴
+          </button>
           <button onClick={onClose}>閉じる</button>
         </div>
         {error && <div className="web-search-error">{error}</div>}
+        {historyOpen && (
+          <div className="note-history">
+            {revisions == null && <div className="revision-empty">読込中…</div>}
+            {revisions != null && revisions.length === 0 && (
+              <div className="revision-empty">履歴はまだありません（更新すると旧本文が残ります）</div>
+            )}
+            {revisions?.map((r) => (
+              <button
+                key={r.id}
+                className="note-history-item"
+                onClick={() => void loadRevision(r)}
+                title="この世代を編集エリアに読み込みます（「保存」で復元が確定）"
+              >
+                <span className="note-history-date">
+                  {new Date(r.created_at).toLocaleString('ja-JP')}
+                </span>
+                <span className="note-history-title">{r.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
           className="source-viewer-textarea"
           placeholder="Markdown で資料を記述します。保存すると段落ごとにチャンク分割され、RAG（検索）に登録されます。"

@@ -505,6 +505,7 @@ export default function App() {
                   draftSavedAt={currentDoc.draft_saved_at}
                   onSaved={handleSaved}
                   onImageUploaded={() => void refreshWorkspaceAssets(currentWsId)}
+                  onRagChanged={() => void refreshWorkspaceAssets(currentWsId)}
                   registerImageInserter={(fn) => {
                     imageInserter.current = fn
                   }}

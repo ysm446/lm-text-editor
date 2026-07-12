@@ -67,6 +67,15 @@ def init_rag_schema() -> None:
               updated_at TEXT
             );
 
+            -- 手動ノートの世代履歴（更新前の本文を退避。まとめなおし事故の保険）
+            CREATE TABLE IF NOT EXISTS manual_note_revision (
+              id INTEGER PRIMARY KEY,
+              note_id INTEGER NOT NULL,
+              title TEXT NOT NULL,
+              content TEXT NOT NULL,
+              created_at TEXT
+            );
+
             -- 全文検索ミラー（trigram: 日本語対応）
             CREATE VIRTUAL TABLE IF NOT EXISTS rag_fts USING fts5(
               chunk_id UNINDEXED, chunk_text, tokenize='trigram'
@@ -233,16 +242,36 @@ def get_note(note_id: int) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
+NOTE_REVISION_KEEP = 20  # ノートごとに残す世代数
+
+
 def update_note(note_id: int, title: str, content: str) -> dict[str, Any]:
-    """手動ノートの本文を更新し、チャンクを作り直す（再インデックス）。"""
+    """手動ノートの本文を更新し、チャンクを作り直す（再インデックス）。
+
+    更新前の本文は世代履歴（manual_note_revision）へ退避する。
+    """
     now = _now()
     with connect() as conn:
         row = conn.execute(
-            "SELECT workspace_id FROM manual_note WHERE id = ?", (note_id,)
+            "SELECT workspace_id, title, content FROM manual_note WHERE id = ?",
+            (note_id,),
         ).fetchone()
         if row is None:
             raise ValueError("note not found")
         workspace_id = row["workspace_id"]
+        # 内容が変わる場合のみ世代を残す（タイトルだけの変更や無変更保存で増やさない）
+        if row["content"] != content and row["content"].strip():
+            conn.execute(
+                "INSERT INTO manual_note_revision (note_id, title, content, created_at)"
+                " VALUES (?, ?, ?, ?)",
+                (note_id, row["title"], row["content"], now),
+            )
+            conn.execute(
+                "DELETE FROM manual_note_revision WHERE note_id = ? AND id NOT IN"
+                " (SELECT id FROM manual_note_revision WHERE note_id = ?"
+                "  ORDER BY id DESC LIMIT ?)",
+                (note_id, note_id, NOTE_REVISION_KEEP),
+            )
         conn.execute(
             "UPDATE manual_note SET title = ?, content = ?, updated_at = ? WHERE id = ?",
             (title, content, now, note_id),
@@ -257,6 +286,27 @@ def update_note(note_id: int, title: str, content: str) -> dict[str, Any]:
         "content": content,
         "source_url": _note_source_url(note_id),
     }
+
+
+def list_note_revisions(note_id: int) -> list[dict[str, Any]]:
+    """ノートの世代履歴（新しい順・メタのみ）。"""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT id, title, created_at FROM manual_note_revision"
+            " WHERE note_id = ? ORDER BY id DESC",
+            (note_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_note_revision(note_id: int, revision_id: int) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT id, note_id, title, content, created_at FROM manual_note_revision"
+            " WHERE id = ? AND note_id = ?",
+            (revision_id, note_id),
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def list_sources(workspace_id: int) -> list[dict[str, Any]]:
@@ -375,11 +425,13 @@ def delete_source(
                 conn.execute(f"DELETE FROM note_fts WHERE note_id IN ({ph})", note_ids)
                 conn.execute(f"DELETE FROM note_vec WHERE note_id IN ({ph})", note_ids)
                 conn.execute(f"DELETE FROM source_note WHERE id IN ({ph})", note_ids)
-        # 手動ノートは本文の正（manual_note）も消す
+        # 手動ノートは本文の正（manual_note）と世代履歴も消す
         if source_type == "note" and source_url and source_url.startswith("note://"):
             try:
+                note_id = int(source_url[len("note://"):])
+                conn.execute("DELETE FROM manual_note WHERE id = ?", (note_id,))
                 conn.execute(
-                    "DELETE FROM manual_note WHERE id = ?", (int(source_url[len("note://"):]),)
+                    "DELETE FROM manual_note_revision WHERE note_id = ?", (note_id,)
                 )
             except ValueError:
                 pass
@@ -411,6 +463,11 @@ def delete_workspace_data(workspace_id: int) -> int:
             conn.execute(f"DELETE FROM note_fts WHERE note_id IN ({ph})", note_ids)
             conn.execute(f"DELETE FROM note_vec WHERE note_id IN ({ph})", note_ids)
             conn.execute(f"DELETE FROM source_note WHERE id IN ({ph})", note_ids)
+        conn.execute(
+            "DELETE FROM manual_note_revision WHERE note_id IN"
+            " (SELECT id FROM manual_note WHERE workspace_id = ?)",
+            (workspace_id,),
+        )
         conn.execute("DELETE FROM manual_note WHERE workspace_id = ?", (workspace_id,))
     return len(ids)
 

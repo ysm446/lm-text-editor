@@ -2062,6 +2062,77 @@ select:focus-visible {
   color: var(--border);
 }
 
+/* 返答の出典（Web 検索の参照 URL）。メタ行の上に小さく並べる */
+.chat-msg-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-xs);
+  padding: 2px 2px 0;
+}
+
+.chat-sources-label {
+  color: var(--faint);
+}
+
+.chat-msg-sources a {
+  color: var(--link);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-msg-sources a:hover {
+  text-decoration: underline;
+}
+
+/* 返答メタ行の「資料へ保存」。普段は控えめ、hover で通常ボタン程度に */
+.chat-save-btn {
+  border: none;
+  background: none;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  padding: 1px 6px;
+  border-radius: var(--radius-s);
+  margin-left: auto;
+}
+
+.chat-save-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* チャット→資料保存モーダル（モデル選択モーダルの外枠を流用） */
+.chat-save-panel {
+  width: min(640px, calc(100vw - 64px));
+}
+
+.chat-save-mode-row {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-save-title,
+.chat-save-note-select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 6px 8px;
+  font-size: var(--fs-ui);
+}
+
+.chat-save-textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 8px;
+  font-size: var(--fs-md);
+  font-family: Consolas, 'Courier New', monospace;
+  line-height: 1.6;
+  min-height: 260px;
+  resize: vertical;
+}
+
 .chat-panel-input {
   border-top: 1px solid var(--border);
   padding: 10px 12px;
@@ -2090,11 +2161,15 @@ select:focus-visible {
   outline: none;
 }
 
+/* トグル（RAG / Web）は左に寄せて並べ、送信だけ右端へ */
 .chat-panel-input-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+}
+
+.chat-panel-input-row .primary {
+  margin-left: auto;
 }
 
 /* ============================================================
@@ -2782,6 +2857,45 @@ select:focus-visible {
   font-family: ui-monospace, 'Consolas', 'Yu Gothic UI', monospace;
   font-size: 14px;
   line-height: 1.8;
+}
+
+/* 手動ノートの世代履歴（ヘッダ「履歴」で開閉。行クリックで編集エリアへ読み込み） */
+.note-history {
+  border-bottom: 1px solid var(--border);
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
+
+.note-history-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: var(--radius-s);
+  font-size: var(--fs-sm);
+}
+
+.note-history-item:hover {
+  background: var(--hover);
+}
+
+.note-history-date {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.note-history-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .source-viewer-body {

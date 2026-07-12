@@ -36,6 +36,7 @@ interface EditorProps {
   draftSavedAt: string | null
   onSaved: (docId: number) => void
   onImageUploaded?: () => void // ペースト/ドロップで画像を保存した後の通知
+  onRagChanged?: () => void // チャットから資料（ノート）を保存した後の通知
   registerImageInserter?: (fn: (url: string) => void) => void // サイドバーからの挿入用
   rightTab: RightTab // 右ペインのタブ（執筆支援 / チャット / 閉）は App が管理
   onSetRightTab: (tab: RightTab) => void
@@ -132,6 +133,7 @@ export default function Editor({
   draftSavedAt,
   onSaved,
   onImageUploaded,
+  onRagChanged,
   registerImageInserter,
   rightTab,
   onSetRightTab,
@@ -560,7 +562,7 @@ export default function Editor({
   }
 
   // チャット: 本文（+ 選択範囲）を文脈にマルチターン対話する
-  const sendChat = async (text: string, useRag: boolean) => {
+  const sendChat = async (text: string, useRag: boolean, useWeb: boolean) => {
     const ed = editorRef.current
     if (!ed || chat.streaming) return
     const { from, to } = ed.state.selection
@@ -580,7 +582,8 @@ export default function Editor({
         ),
       }))
     try {
-      // /chat は NDJSON: {"delta": "..."} を逐次、最後に {"done": true, ...統計}
+      // /chat は NDJSON: use_web なら先頭に {"sources": [...]}、
+      // {"delta": "..."} を逐次、最後に {"done": true, ...統計}
       let output = ''
       let buffer = ''
       let meta: ChatMeta | null = null
@@ -590,6 +593,7 @@ export default function Editor({
         document_md: getMarkdown(),
         selection,
         use_rag: useRag,
+        use_web: useWeb,
       })) {
         buffer += chunk
         let nl: number
@@ -599,15 +603,23 @@ export default function Editor({
           if (!line.trim()) continue
           const obj = JSON.parse(line) as {
             delta?: string
+            sources?: { title: string; url: string }[]
+            error?: string
             done?: boolean
             tokens?: number | null
             elapsed?: number | null
             tps?: number | null
             finish_reason?: string | null
           }
+          if (obj.error) {
+            // backend がストリーム中のエラーを NDJSON で通知してくる
+            throw new Error(obj.error)
+          }
           if (obj.delta) {
             output += obj.delta
             setLast({ content: output })
+          } else if (obj.sources) {
+            setLast({ sources: obj.sources })
           } else if (obj.done) {
             meta = {
               tokens: obj.tokens ?? null,
@@ -820,9 +832,11 @@ export default function Editor({
         createPortal(
           <ChatPanel
             chat={chat}
-            onSend={(text, useRag) => void sendChat(text, useRag)}
+            workspaceId={workspaceId}
+            onSend={(text, useRag, useWeb) => void sendChat(text, useRag, useWeb)}
             onClear={chatClear}
             onClose={() => onSetRightTab(null)}
+            onRagChanged={onRagChanged}
           />,
           assistPaneEl,
         )}

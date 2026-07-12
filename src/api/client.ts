@@ -86,6 +86,22 @@ export interface NoteContent {
   content: string
 }
 
+export interface NoteRevisionMeta {
+  id: number
+  title: string
+  created_at: string
+}
+
+export interface NoteRevision extends NoteRevisionMeta {
+  note_id: number
+  content: string
+}
+
+export interface ChatSource {
+  title: string
+  url: string
+}
+
 export interface SourceDetail {
   chunks: { id: number; chunk_text: string; fetched_at: string | null }[]
   notes: { id: number; summary: string; fetched_at: string | null }[]
@@ -324,6 +340,19 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ title, content }),
     }),
+
+  // 既存ノート + 新情報の LLM 統合案を返す（保存はしない。プレビュー確認後に updateNote）
+  mergeNote: (noteId: number, content: string) =>
+    request<{ note_id: number; title: string; merged: string }>(
+      `/rag/note/${noteId}/merge`,
+      { method: 'POST', body: JSON.stringify({ content }) },
+    ),
+
+  listNoteRevisions: (noteId: number) =>
+    request<NoteRevisionMeta[]>(`/rag/note/${noteId}/revisions`),
+
+  getNoteRevision: (noteId: number, revisionId: number) =>
+    request<NoteRevision>(`/rag/note/${noteId}/revisions/${revisionId}`),
 
   getRagSourceDetail: (
     workspaceId: number,
