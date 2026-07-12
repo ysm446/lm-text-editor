@@ -76,6 +76,16 @@ def init_rag_schema() -> None:
               created_at TEXT
             );
 
+            -- 資料（web / article / reference）の表示名。手動ノートは manual_note.title が正。
+            -- source_url が NULL のソースはキーを '' に正規化して保存する
+            CREATE TABLE IF NOT EXISTS source_label (
+              workspace_id INTEGER NOT NULL,
+              source_type TEXT NOT NULL,
+              source_url TEXT NOT NULL,
+              label TEXT NOT NULL,
+              UNIQUE (workspace_id, source_type, source_url)
+            );
+
             -- 全文検索ミラー（trigram: 日本語対応）
             CREATE VIRTUAL TABLE IF NOT EXISTS rag_fts USING fts5(
               chunk_id UNINDEXED, chunk_text, tokenize='trigram'
@@ -288,6 +298,36 @@ def update_note(note_id: int, title: str, content: str) -> dict[str, Any]:
     }
 
 
+def rename_note(note_id: int, title: str) -> dict[str, Any]:
+    """手動ノートのタイトルだけを変更する（本文・チャンク・世代履歴は触らない）。"""
+    now = _now()
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM manual_note WHERE id = ?", (note_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("note not found")
+        conn.execute(
+            "UPDATE manual_note SET title = ?, updated_at = ? WHERE id = ?",
+            (title, now, note_id),
+        )
+    return {"id": note_id, "title": title}
+
+
+def set_source_label(
+    workspace_id: int, source_type: str, source_url: str | None, label: str
+) -> None:
+    """web / article / reference 資料の表示名を設定する（上書き可）。"""
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO source_label (workspace_id, source_type, source_url, label)"
+            " VALUES (?, ?, ?, ?)"
+            " ON CONFLICT (workspace_id, source_type, source_url)"
+            " DO UPDATE SET label = excluded.label",
+            (workspace_id, source_type, source_url or "", label),
+        )
+
+
 def list_note_revisions(note_id: int) -> list[dict[str, Any]]:
     """ノートの世代履歴（新しい順・メタのみ）。"""
     with connect() as conn:
@@ -337,8 +377,14 @@ def list_sources(workspace_id: int) -> list[dict[str, Any]]:
             " WHERE workspace_id = ? GROUP BY source_url",
             (workspace_id,),
         ).fetchall()
+        label_rows = conn.execute(
+            "SELECT source_type, source_url, label FROM source_label"
+            " WHERE workspace_id = ?",
+            (workspace_id,),
+        ).fetchall()
     notes_by_url = {r["source_url"]: int(r["n"]) for r in summary_rows}
     chunks_by_note = {r["source_url"]: int(r["n"]) for r in note_chunk_rows}
+    labels = {(r["source_type"], r["source_url"]): r["label"] for r in label_rows}
     result: list[dict[str, Any]] = []
     for r in manual_rows:
         url = _note_source_url(r["id"])
@@ -355,7 +401,11 @@ def list_sources(workspace_id: int) -> list[dict[str, Any]]:
         )
     for r in rows:
         result.append(
-            {**dict(r), "note_count": notes_by_url.get(r["source_url"], 0)}
+            {
+                **dict(r),
+                "note_count": notes_by_url.get(r["source_url"], 0),
+                "title": labels.get((r["source_type"], r["source_url"] or "")),
+            }
         )
     return result
 
@@ -425,6 +475,11 @@ def delete_source(
                 conn.execute(f"DELETE FROM note_fts WHERE note_id IN ({ph})", note_ids)
                 conn.execute(f"DELETE FROM note_vec WHERE note_id IN ({ph})", note_ids)
                 conn.execute(f"DELETE FROM source_note WHERE id IN ({ph})", note_ids)
+        conn.execute(
+            "DELETE FROM source_label"
+            " WHERE workspace_id = ? AND source_type = ? AND source_url = ?",
+            (workspace_id, source_type, source_url or ""),
+        )
         # 手動ノートは本文の正（manual_note）と世代履歴も消す
         if source_type == "note" and source_url and source_url.startswith("note://"):
             try:
@@ -469,6 +524,7 @@ def delete_workspace_data(workspace_id: int) -> int:
             (workspace_id,),
         )
         conn.execute("DELETE FROM manual_note WHERE workspace_id = ?", (workspace_id,))
+        conn.execute("DELETE FROM source_label WHERE workspace_id = ?", (workspace_id,))
     return len(ids)
 
 

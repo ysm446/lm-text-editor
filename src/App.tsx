@@ -328,6 +328,20 @@ export default function App() {
     [currentWsId, refreshWorkspaceAssets],
   )
 
+  const renameSource = useCallback(
+    async (source: RagSource, title: string) => {
+      if (currentWsId == null) return
+      await api.renameRagSource(
+        currentWsId,
+        source.source_type,
+        source.source_url,
+        title,
+      )
+      void refreshWorkspaceAssets(currentWsId)
+    },
+    [currentWsId, refreshWorkspaceAssets],
+  )
+
   // 画像: カーソル位置に挿入 / ファイル追加 / 削除
   const insertImage = useCallback((image: WorkspaceImage) => {
     imageInserter.current?.(image.url)
@@ -444,6 +458,7 @@ export default function App() {
               : s,
           )
         }
+        onRenameSource={(s, title) => void renameSource(s, title)}
         onDeleteSource={(s) => void deleteSource(s)}
         canAddImages={currentWsId != null}
         onAddImageFiles={(files) => void addImageFiles(files)}

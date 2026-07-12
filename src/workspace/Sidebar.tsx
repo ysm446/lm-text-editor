@@ -25,8 +25,9 @@ function sameSource(a: RagSource | null, b: RagSource | null): boolean {
 }
 
 function sourceLabel(s: RagSource): string {
-  // 手動ノートはタイトルを表示（本文の正は manual_note 側）
-  if (s.source_type === 'note') return s.title || '無題'
+  // 表示名があれば最優先（手動ノート = manual_note.title / それ以外 = source_label）
+  if (s.title) return s.title
+  if (s.source_type === 'note') return '無題'
   if (!s.source_url) return `（${s.source_type}）`
   try {
     // ファイル（file:///<名前>）は末尾を復号して表示
@@ -213,6 +214,113 @@ function ItemRow({ label, selected, expanded, onSelect, onRename, onDelete }: It
   )
 }
 
+interface SourceRowProps {
+  source: RagSource
+  selected: boolean
+  onView: () => void
+  onRename: (title: string) => void
+  onDelete: () => void
+}
+
+// 資料（RAG）の 1 行。「…」からドキュメントと同じポップアップ（名前を変更 / 削除）
+function SourceRow({ source, selected, onView, onRename, onDelete }: SourceRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const rootRef = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [menuOpen])
+
+  const label = sourceLabel(source)
+
+  const submitRename = () => {
+    const title = value.trim()
+    setEditing(false)
+    if (title && title !== label) onRename(title)
+  }
+
+  if (editing) {
+    return (
+      <li ref={rootRef}>
+        <input
+          className="inline-create-input"
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submitRename()
+            if (e.key === 'Escape') setEditing(false)
+          }}
+          onBlur={submitRename}
+        />
+      </li>
+    )
+  }
+
+  return (
+    <li ref={rootRef} className="item-row">
+      <button
+        className={`source-item${selected ? ' selected' : ''}`}
+        title={`${source.source_url ?? source.source_type}\n${source.chunk_count} チャンク${source.note_count > 0 ? ' + 要約ノート' : ''}\nクリックで内容を表示（もう一度で閉じる）`}
+        onClick={onView}
+      >
+        <span className={`source-badge type-${source.source_type}`}>
+          {source.source_type === 'web'
+            ? 'W'
+            : source.source_type === 'article'
+              ? 'A'
+              : source.source_type === 'note'
+                ? 'M'
+                : 'R'}
+        </span>
+        <span className="source-name">{label}</span>
+        <span className="source-count">{source.chunk_count}</span>
+      </button>
+      <button
+        className="item-menu-btn"
+        title="メニュー"
+        onClick={(e) => {
+          e.stopPropagation()
+          setMenuOpen((v) => !v)
+        }}
+      >
+        …
+      </button>
+      {menuOpen && (
+        <div className="item-popup">
+          <button
+            onClick={() => {
+              setMenuOpen(false)
+              setValue(label)
+              setEditing(true)
+            }}
+          >
+            名前を変更
+          </button>
+          <button
+            className="danger"
+            onClick={() => {
+              setMenuOpen(false)
+              onDelete()
+            }}
+          >
+            削除
+          </button>
+        </div>
+      )}
+    </li>
+  )
+}
+
 interface SidebarProps {
   workspaces: Workspace[]
   currentWorkspaceId: number | null
@@ -233,6 +341,7 @@ interface SidebarProps {
   onCreateNote: () => void // 新規ノートを作成して左ペインで編集を開く
   onWebSearch: () => void // Web 検索パネルを開く
   onViewSource: (source: RagSource) => void
+  onRenameSource: (source: RagSource, title: string) => void
   onDeleteSource: (source: RagSource) => void
   canAddImages: boolean // 画像はワークスペース単位。ワークスペースを開いているときのみ
   onAddImageFiles: (files: FileList) => void
@@ -261,6 +370,7 @@ export default function Sidebar({
   onCreateNote,
   onWebSearch,
   onViewSource,
+  onRenameSource,
   onDeleteSource,
   canAddImages,
   onAddImageFiles,
@@ -425,32 +535,14 @@ export default function Sidebar({
         {openSections.sources && (
           <ul>
             {sources.map((s) => (
-              <li key={`${s.source_type}:${s.source_url ?? ''}`} className="item-row">
-                <button
-                  className={`source-item${sameSource(currentSource, s) ? ' selected' : ''}`}
-                  title={`${s.source_url ?? s.source_type}\n${s.chunk_count} チャンク${s.note_count > 0 ? ' + 要約ノート' : ''}\nクリックで内容を表示（もう一度で閉じる）`}
-                  onClick={() => onViewSource(s)}
-                >
-                  <span className={`source-badge type-${s.source_type}`}>
-                    {s.source_type === 'web'
-                      ? 'W'
-                      : s.source_type === 'article'
-                        ? 'A'
-                        : s.source_type === 'note'
-                          ? 'M'
-                          : 'R'}
-                  </span>
-                  <span className="source-name">{sourceLabel(s)}</span>
-                  <span className="source-count">{s.chunk_count}</span>
-                </button>
-                <button
-                  className="item-menu-btn"
-                  title="この資料を削除"
-                  onClick={() => onDeleteSource(s)}
-                >
-                  ✕
-                </button>
-              </li>
+              <SourceRow
+                key={`${s.source_type}:${s.source_url ?? ''}`}
+                source={s}
+                selected={sameSource(currentSource, s)}
+                onView={() => onViewSource(s)}
+                onRename={(title) => onRenameSource(s, title)}
+                onDelete={() => onDeleteSource(s)}
+              />
             ))}
           </ul>
         )}

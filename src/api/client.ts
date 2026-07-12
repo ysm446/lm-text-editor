@@ -382,6 +382,23 @@ export const api = {
       }),
     }),
 
+  // 資料の表示名を変更（手動ノートはタイトル、web/ファイル等は表示ラベル）
+  renameRagSource: (
+    workspaceId: number,
+    sourceType: string,
+    sourceUrl: string | null,
+    title: string,
+  ) =>
+    request<{ ok: boolean }>('/rag/sources/rename', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        source_type: sourceType,
+        source_url: sourceUrl,
+        title,
+      }),
+    }),
+
   listWorkspaceImages: (workspaceId: number) =>
     request<WorkspaceImage[]>(`/workspaces/${workspaceId}/images`).then((imgs) =>
       imgs.map((i) => ({ ...i, url: `${baseUrl}${i.url}` })),

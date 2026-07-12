@@ -1,7 +1,7 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-12 12:15
+更新日時: 2026-07-13 03:49
 
 ## 現在の状態
 
@@ -119,6 +119,8 @@
   - 検証（一時ライブラリ・インプロセス）: ornith 実ロード → 日本語依頼を英語 3 クエリに分解 → ddgs 8 件 → GitHub ページ取り込み（3 チャンク + 高品質な日本語要約ノート）→ ノート/チャンク検索ヒットまで確認。
 
 - 2026-07-07 UX 改善（ユーザー要望）: Web 検索の URL 直接指定、結果リンクの外部ブラウザ起動（shell.openExternal）、ファイルドロップの誤ナビゲーション防止、下部リソースモニター（lm-chat / news-picker の system_stats 移植。📊 で表示切替、localStorage に記憶）。
+
+- 2026-07-13 資料（RAG）の名前変更（ユーザー要望）: サイドバーの資料行を「…」メニュー（名前を変更 / 削除）に統一（ドキュメントと同じ UX。従来の ✕ はメニューへ）。M ノートは `manual_note.title` を直接変更（`rename_note`: 本文・チャンク・世代履歴に触れない）。W/A/R は新設の `source_label` テーブル（workspace_id + source_type + source_url で一意、URL NULL は '' に正規化）に表示名を保存し、`list_sources` が title として返す。API は `POST /rag/sources/rename`（note はタイトル、他はラベルにディスパッチ）。資料削除・ワークスペース削除でラベルもカスケード削除（同 URL の再取り込みに旧名が残らない）。検証: `npm run build` / `py_compile` / 一時ライブラリのインプロセステスト（rename_note の非破壊性・ラベル上書き・NULL URL・削除カスケード・API の 400/404）通過。
 
 - 2026-07-12 チャットの本文トグル（ユーザー要望。plan.md 7c-8）: 「本文 / RAG / Web」の 3 トグル体制に。OFF で全文・選択範囲を送らず、system の文章尊重ルールも外す（`CHAT_SYSTEM_DOC_RULES` を分離し、document_md / selection があるときだけ合成）。`doc_id` は RAG のワークスペース解決に使うため常に送る。検証: `npm run build` / `py_compile` / プロンプトビルダーのテスト（ルールの有無・system 1 つ維持）通過。
 

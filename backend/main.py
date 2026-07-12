@@ -484,6 +484,13 @@ class RagSourceDeleteRequest(BaseModel):
     source_url: str | None = None
 
 
+class RagSourceRenameRequest(BaseModel):
+    workspace_id: int
+    source_type: str
+    source_url: str | None = None
+    title: str
+
+
 @app.get("/rag/sources")
 def list_rag_sources(workspace_id: int) -> list[dict[str, Any]]:
     return rag_store.list_sources(workspace_id)
@@ -503,6 +510,26 @@ def delete_rag_source(body: RagSourceDeleteRequest) -> dict[str, Any]:
         body.workspace_id, body.source_type, body.source_url
     )
     return {"ok": True, "deleted_chunks": deleted}
+
+
+@app.post("/rag/sources/rename")
+def rename_rag_source(body: RagSourceRenameRequest) -> dict[str, Any]:
+    """資料の表示名を変更する。手動ノートはタイトル、それ以外は表示ラベルを更新。"""
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title is required")
+    if body.source_type == "note":
+        if not (body.source_url or "").startswith("note://"):
+            raise HTTPException(status_code=400, detail="invalid note source_url")
+        try:
+            rag_store.rename_note(int(body.source_url[len("note://"):]), title)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="note not found")
+    else:
+        rag_store.set_source_label(
+            body.workspace_id, body.source_type, body.source_url, title
+        )
+    return {"ok": True}
 
 
 @app.post("/rag/ingest")
