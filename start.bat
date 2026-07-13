@@ -47,9 +47,13 @@ if errorlevel 1 (
 :venv_ready
 
 if not exist "node_modules" (
-    echo [ERROR] node_modules not found. Run: npm install
-    pause
-    exit /b 1
+    echo node_modules not found. Running npm install ^(first run only, may take a while^)...
+    call npm install
+    if errorlevel 1 (
+        echo [ERROR] npm install failed.
+        pause
+        exit /b 1
+    )
 )
 
 echo Starting backend (it exits automatically when the app window is closed)...
