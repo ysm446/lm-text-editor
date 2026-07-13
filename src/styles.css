@@ -1216,52 +1216,15 @@ select:focus-visible {
   color: var(--faint);
 }
 
-/* サイドバー: 画像セクション */
-.image-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  padding: 0 4px;
-}
-
-.image-thumb-wrap {
-  position: relative;
-}
-
-.image-thumb {
-  width: 100%;
-  aspect-ratio: 1;
+/* サイドバー: 画像セクション（資料と同じ 1 行体裁。左に小サムネイル） */
+.image-item-thumb {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
   object-fit: cover;
-  border-radius: var(--radius-m);
+  border-radius: var(--radius-s);
   border: 1px solid var(--border);
-  cursor: pointer;
   display: block;
-}
-
-.image-thumb:hover {
-  border-color: var(--accent);
-}
-
-.image-thumb-delete {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 18px;
-  height: 18px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: #ffffff;
-  font-size: 10px;
-  cursor: pointer;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.image-thumb-wrap:hover .image-thumb-delete {
-  display: flex;
 }
 
 /* ワークスペースツリー */

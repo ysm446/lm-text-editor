@@ -861,5 +861,21 @@ def create_asset(body: AssetCreate) -> dict[str, Any]:
     img_dir.mkdir(parents=True, exist_ok=True)
     (img_dir / name).write_bytes(data)
 
-    asset = models.create_asset(workspace_id, rel_path, body.caption)
+    # ディスク上は UUID 名。元ファイル名を表示名の初期値として保持する。
+    display_name = Path(body.filename).name or None
+    asset = models.create_asset(workspace_id, rel_path, display_name, body.caption)
     return {**asset, "url": f"/files/{workspace_id}/{rel_path}"}
+
+
+class AssetRename(BaseModel):
+    display_name: str
+
+
+@app.post("/assets/{asset_id}/rename")
+def rename_asset(asset_id: int, body: AssetRename) -> dict[str, bool]:
+    name = body.display_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="display_name is required")
+    if not models.rename_asset(asset_id, name):
+        raise HTTPException(status_code=404, detail="asset not found")
+    return {"ok": True}

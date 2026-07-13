@@ -25,13 +25,16 @@ export default function ImageLightbox({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const name =
+    image.display_name || image.rel_path.split('/').pop() || image.rel_path
+
   return (
     <div className="lightbox-overlay" onClick={onClose}>
       <div className="lightbox" onClick={(e) => e.stopPropagation()}>
-        <img className="lightbox-image" src={image.url} alt={image.rel_path} />
+        <img className="lightbox-image" src={image.url} alt={name} />
         <div className="lightbox-footer">
-          <span className="lightbox-name" title={image.rel_path}>
-            {image.rel_path.split('/').pop()}
+          <span className="lightbox-name" title={name}>
+            {name}
           </span>
           <div className="lightbox-actions">
             <button

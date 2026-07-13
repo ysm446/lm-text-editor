@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS document_revision (
 CREATE TABLE IF NOT EXISTS asset (
   id INTEGER PRIMARY KEY,
   workspace_id INTEGER NOT NULL REFERENCES workspace(id),
-  rel_path TEXT NOT NULL,          -- ワークスペース基準の相対パス
+  rel_path TEXT NOT NULL,          -- ワークスペース基準の相対パス（保存名は UUID。衝突・危険文字回避）
+  display_name TEXT,               -- 表示名（初期値は元ファイル名。後から変更可）
   caption TEXT,
   created_at TEXT NOT NULL
 );

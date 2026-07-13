@@ -370,6 +370,14 @@ export default function App() {
     [currentWsId, refreshWorkspaceAssets],
   )
 
+  const renameImage = useCallback(
+    async (image: WorkspaceImage, displayName: string) => {
+      await api.renameAsset(image.id, displayName)
+      void refreshWorkspaceAssets(currentWsId)
+    },
+    [currentWsId, refreshWorkspaceAssets],
+  )
+
   const deleteImage = useCallback(
     async (image: WorkspaceImage) => {
       if (
@@ -463,6 +471,7 @@ export default function App() {
         canAddImages={currentWsId != null}
         onAddImageFiles={(files) => void addImageFiles(files)}
         onViewImage={setViewingImage}
+        onRenameImage={(img, name) => void renameImage(img, name)}
         onDeleteImage={(img) => void deleteImage(img)}
         onLibrarySwitched={handleLibrarySwitched}
       />

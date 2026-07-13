@@ -39,6 +39,7 @@ export interface Asset {
   id: number
   workspace_id: number
   rel_path: string
+  display_name: string | null // 表示名（初期値は元ファイル名）
   caption: string | null
   created_at: string
   url: string // 絶対 URL（baseUrl 込み）
@@ -111,6 +112,7 @@ export interface WorkspaceImage {
   id: number
   workspace_id: number
   rel_path: string
+  display_name: string | null // 表示名（初期値は元ファイル名。null は旧データ）
   caption: string | null
   created_at: string
   url: string
@@ -406,6 +408,12 @@ export const api = {
 
   deleteAsset: (assetId: number) =>
     request<{ ok: boolean }>(`/assets/${assetId}`, { method: 'DELETE' }),
+
+  renameAsset: (assetId: number, displayName: string) =>
+    request<{ ok: boolean }>(`/assets/${assetId}/rename`, {
+      method: 'POST',
+      body: JSON.stringify({ display_name: displayName }),
+    }),
 
   webSearch: (query: string, maxResults = 8) =>
     request<{ queries: string[]; results: WebSearchResult[]; provider: string }>(

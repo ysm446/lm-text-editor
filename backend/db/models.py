@@ -60,6 +60,11 @@ def init_db() -> None:
                 ALTER TABLE asset_new RENAME TO asset;
                 """
             )
+        # 画像に表示名（初期値は元ファイル名）を追加。既存行は NULL のまま
+        # → 表示側で rel_path basename にフォールバックする。
+        acols2 = {r["name"] for r in conn.execute("PRAGMA table_info(asset)")}
+        if "display_name" not in acols2:
+            conn.execute("ALTER TABLE asset ADD COLUMN display_name TEXT")
 
 
 # --- workspace ---
@@ -286,7 +291,7 @@ def update_doc(
 def list_workspace_images(workspace_id: int) -> list[dict[str, Any]]:
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, workspace_id, rel_path, caption, created_at"
+            "SELECT id, workspace_id, rel_path, display_name, caption, created_at"
             " FROM asset WHERE workspace_id = ? ORDER BY id DESC",
             (workspace_id,),
         ).fetchall()
@@ -308,20 +313,34 @@ def delete_asset(asset_id: int) -> dict[str, Any] | None:
 
 
 def create_asset(
-    workspace_id: int, rel_path: str, caption: str | None = None
+    workspace_id: int,
+    rel_path: str,
+    display_name: str | None = None,
+    caption: str | None = None,
 ) -> dict[str, Any]:
     now = _now()
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO asset (workspace_id, rel_path, caption, created_at)"
-            " VALUES (?, ?, ?, ?)",
-            (workspace_id, rel_path, caption, now),
+            "INSERT INTO asset (workspace_id, rel_path, display_name, caption, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (workspace_id, rel_path, display_name, caption, now),
         )
         asset_id = cur.lastrowid
     return {
         "id": asset_id,
         "workspace_id": workspace_id,
         "rel_path": rel_path,
+        "display_name": display_name,
         "caption": caption,
         "created_at": now,
     }
+
+
+def rename_asset(asset_id: int, display_name: str) -> bool:
+    """画像の表示名を変更する。"""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE asset SET display_name = ? WHERE id = ?",
+            (display_name, asset_id),
+        )
+        return cur.rowcount > 0

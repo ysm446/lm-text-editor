@@ -321,6 +321,108 @@ function SourceRow({ source, selected, onView, onRename, onDelete }: SourceRowPr
   )
 }
 
+// 画像の表示名。未設定（旧データ）は保存パスの basename にフォールバック。
+function imageLabel(img: WorkspaceImage): string {
+  return img.display_name || (img.rel_path.split('/').pop() ?? img.rel_path)
+}
+
+interface ImageRowProps {
+  image: WorkspaceImage
+  onView: () => void
+  onRename: (name: string) => void
+  onDelete: () => void
+}
+
+// 画像の 1 行（資料と同じ体裁）。サムネイル + 表示名 +「…」メニュー（名前を変更 / 削除）
+function ImageRow({ image, onView, onRename, onDelete }: ImageRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const rootRef = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [menuOpen])
+
+  const label = imageLabel(image)
+
+  const submitRename = () => {
+    const name = value.trim()
+    setEditing(false)
+    if (name && name !== label) onRename(name)
+  }
+
+  if (editing) {
+    return (
+      <li ref={rootRef}>
+        <input
+          className="inline-create-input"
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submitRename()
+            if (e.key === 'Escape') setEditing(false)
+          }}
+          onBlur={submitRename}
+        />
+      </li>
+    )
+  }
+
+  return (
+    <li ref={rootRef} className="item-row">
+      <button
+        className="source-item image-item"
+        title={`${label}\nクリックで拡大表示`}
+        onClick={onView}
+      >
+        <img className="image-item-thumb" src={image.url} alt="" />
+        <span className="source-name">{label}</span>
+      </button>
+      <button
+        className="item-menu-btn"
+        title="メニュー"
+        onClick={(e) => {
+          e.stopPropagation()
+          setMenuOpen((v) => !v)
+        }}
+      >
+        …
+      </button>
+      {menuOpen && (
+        <div className="item-popup">
+          <button
+            onClick={() => {
+              setMenuOpen(false)
+              setValue(label)
+              setEditing(true)
+            }}
+          >
+            名前を変更
+          </button>
+          <button
+            className="danger"
+            onClick={() => {
+              setMenuOpen(false)
+              onDelete()
+            }}
+          >
+            削除
+          </button>
+        </div>
+      )}
+    </li>
+  )
+}
+
 interface SidebarProps {
   workspaces: Workspace[]
   currentWorkspaceId: number | null
@@ -346,6 +448,7 @@ interface SidebarProps {
   canAddImages: boolean // 画像はワークスペース単位。ワークスペースを開いているときのみ
   onAddImageFiles: (files: FileList) => void
   onViewImage: (image: WorkspaceImage) => void
+  onRenameImage: (image: WorkspaceImage, name: string) => void
   onDeleteImage: (image: WorkspaceImage) => void
   onLibrarySwitched: () => void // 下部フッターのライブラリ（Vault 相当）切替
 }
@@ -375,6 +478,7 @@ export default function Sidebar({
   canAddImages,
   onAddImageFiles,
   onViewImage,
+  onRenameImage,
   onDeleteImage,
   onLibrarySwitched,
 }: SidebarProps) {
@@ -588,25 +692,17 @@ export default function Sidebar({
           }}
         />
         {openSections.images && images.length > 0 && (
-          <div className="image-grid">
+          <ul>
             {images.map((img) => (
-              <div key={img.id} className="image-thumb-wrap">
-                <img
-                  className="image-thumb"
-                  src={img.url}
-                  title={`${img.rel_path}\nクリックで拡大表示`}
-                  onClick={() => onViewImage(img)}
-                />
-                <button
-                  className="image-thumb-delete"
-                  title="この画像を削除"
-                  onClick={() => onDeleteImage(img)}
-                >
-                  ✕
-                </button>
-              </div>
+              <ImageRow
+                key={img.id}
+                image={img}
+                onView={() => onViewImage(img)}
+                onRename={(name) => onRenameImage(img, name)}
+                onDelete={() => onDeleteImage(img)}
+              />
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </li>
