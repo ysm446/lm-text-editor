@@ -2139,6 +2139,25 @@ select:focus-visible {
   margin-left: auto;
 }
 
+/* コンテキスト使用ゲージ: 送信ボタンの直前（右寄せ）に置く */
+.chat-ctx-gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  cursor: default;
+}
+.chat-ctx-gauge + .primary {
+  margin-left: 8px;
+}
+.chat-ctx-gauge svg {
+  display: block;
+}
+
 /* ============================================================
    分割ビュー校正
    ============================================================ */

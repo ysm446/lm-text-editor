@@ -63,10 +63,59 @@ function MetaLine({ meta }: { meta: ChatMeta }) {
   )
 }
 
+export interface ChatContext {
+  used: number // 直近ターンで消費したコンテキストトークン（履歴+文脈+応答）
+  limit: number // コンテキスト長（n_ctx）
+}
+
+// コンテキスト長に対する使用率の円形ゲージ（送信ボタン横）。
+function ContextGauge({ used, limit }: ChatContext) {
+  const ratio = limit > 0 ? Math.min(used / limit, 1) : 0
+  const pct = Math.round(ratio * 100)
+  const size = 20
+  const stroke = 2.5
+  const r = (size - stroke) / 2
+  const c = 2 * Math.PI * r
+  // 80% 超は警告色（コンテキスト溢れが近い）
+  const color =
+    ratio >= 0.9 ? 'var(--danger, #e5484d)' : ratio >= 0.8 ? '#e5a23d' : 'var(--accent)'
+  return (
+    <span
+      className="chat-ctx-gauge"
+      title={`コンテキスト使用量: ${used.toLocaleString()} / ${limit.toLocaleString()} トークン（${pct}%）`}
+    >
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="var(--border)"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - ratio)}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </svg>
+      <span className="chat-ctx-pct">{pct}%</span>
+    </span>
+  )
+}
+
 export interface ChatState {
   messages: ChatMsg[]
   streaming: boolean
   error?: string | null
+  context?: ChatContext | null // 直近ターンのコンテキスト使用量（送信ボタン横のゲージ用）
 }
 
 interface ChatPanelProps {
@@ -236,6 +285,9 @@ export default function ChatPanel({
           >
             Web
           </button>
+          {chat.context && (
+            <ContextGauge used={chat.context.used} limit={chat.context.limit} />
+          )}
           <button className="primary" disabled={chat.streaming || !input.trim()} onClick={send}>
             {chat.streaming ? '応答中…' : '送信'}
           </button>

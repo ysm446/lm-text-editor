@@ -591,11 +591,12 @@ export default function Editor({
       useDoc && from !== to ? ed.state.doc.textBetween(from, to, '\n') : null
     const history = [...chat.messages, { role: 'user' as const, content: text }]
     // assistant のプレースホルダを足し、ストリームで中身を埋める
-    setChat({
+    setChat((c) => ({
+      ...c,
       messages: [...history, { role: 'assistant', content: '' }],
       streaming: true,
       error: null,
-    })
+    }))
     const setLast = (patch: Partial<ChatMsg>) =>
       setChat((c) => ({
         ...c,
@@ -609,6 +610,7 @@ export default function Editor({
       let output = ''
       let buffer = ''
       let meta: ChatMeta | null = null
+      let context: { used: number; limit: number } | null = null
       for await (const chunk of streamText('/chat', {
         messages: history,
         doc_id: docId,
@@ -632,6 +634,8 @@ export default function Editor({
             elapsed?: number | null
             tps?: number | null
             finish_reason?: string | null
+            context_tokens?: number | null
+            context_length?: number | null
           }
           if (obj.error) {
             // backend がストリーム中のエラーを NDJSON で通知してくる
@@ -649,11 +653,14 @@ export default function Editor({
               tps: obj.tps ?? null,
               finish_reason: obj.finish_reason ?? null,
             }
+            if (obj.context_tokens != null && obj.context_length) {
+              context = { used: obj.context_tokens, limit: obj.context_length }
+            }
           }
         }
       }
       setLast({ content: output.trim(), meta })
-      setChat((c) => ({ ...c, streaming: false }))
+      setChat((c) => ({ ...c, streaming: false, context: context ?? c.context }))
     } catch (e) {
       setChat((c) => ({
         ...c,

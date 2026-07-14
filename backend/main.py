@@ -754,6 +754,15 @@ async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
                 tps = timings["predicted_per_second"]
         if tps is None and tokens and elapsed > 0:
             tps = tokens / elapsed
+        # コンテキスト使用量: プロンプト（履歴+文脈）+ 応答 = このターン後の消費トークン
+        prompt_tokens = (usage or {}).get("prompt_tokens")
+        if timings and timings.get("prompt_n"):
+            prompt_tokens = timings["prompt_n"]
+        context_tokens: int | None = None
+        if prompt_tokens is not None and tokens is not None:
+            context_tokens = prompt_tokens + tokens
+        elif usage and usage.get("total_tokens"):
+            context_tokens = usage["total_tokens"]
         yield json.dumps(
             {
                 "done": True,
@@ -761,6 +770,8 @@ async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
                 "elapsed": round(elapsed, 2),
                 "tps": round(tps, 1) if tps else None,
                 "finish_reason": finish_reason,
+                "context_tokens": context_tokens,
+                "context_length": llm_manager._context_length(),
             },
             ensure_ascii=False,
         ) + "\n"
