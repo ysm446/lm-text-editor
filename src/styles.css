@@ -1976,6 +1976,10 @@ select:focus-visible {
   background: none;
   padding: 0;
   color: inherit;
+  /* コードブロックが返答全体に使われても、長い行を折り返して表示する */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .chat-md blockquote {
   border-left: 3px solid var(--border);
