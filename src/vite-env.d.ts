@@ -10,5 +10,9 @@ interface Window {
       node: string
     }
     chooseLibraryFolder: (mode?: 'open' | 'create') => Promise<string | null>
+    toast: {
+      reveal: () => Promise<void>
+      dismiss: () => Promise<void>
+    }
   }
 }

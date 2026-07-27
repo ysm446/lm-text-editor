@@ -14,4 +14,10 @@ contextBridge.exposeInMainWorld('lmEditor', {
     ipcRenderer.invoke('lm-editor:choose-library-folder', mode) as Promise<
       string | null
     >,
+  // 右下のアクション通知ウィンドウ（main.ts が組み立てる HTML）から使う
+  toast: {
+    reveal: () => ipcRenderer.invoke('lm-editor:toast-reveal') as Promise<void>,
+    dismiss: () =>
+      ipcRenderer.invoke('lm-editor:toast-dismiss') as Promise<void>,
+  },
 })
