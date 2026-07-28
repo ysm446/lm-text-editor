@@ -24,6 +24,15 @@
   --bar-danger: #fb7a7e;
   --bar-ok: #44cf6e;
   --bar-warn: #e0ac00;
+  /* バー内のアクセント（テーマ非依存。ダークの --accent と同系の紫） */
+  --bar-accent: #7f6df2;
+  --bar-accent-soft: color-mix(in srgb, var(--bar-accent) 16%, var(--bar-surface));
+  --bar-accent-border: rgba(140, 122, 255, 0.75);
+  /* ロード中リング（conic-gradient のストップ）とその周囲のグロー */
+  --bar-accent-ring: #a98bff;
+  --bar-accent-ring-dim: rgba(127, 109, 242, 0.15);
+  --bar-accent-ring-off: rgba(127, 109, 242, 0);
+  --bar-accent-glow: rgba(127, 109, 242, 0.25);
 
   /* --- ライトテーマ（アクセントはダークと同系の紫） --- */
   color-scheme: light;
@@ -544,24 +553,27 @@ select:focus-visible {
   gap: 6px;
 }
 
-/* モデルピル: 上部中央の状態ボタン（クリックでモーダル）。LM Studio / VCA 風。
-   ロード済み=アクセント塗り / 未ロード=グレー / ロード中=アクセントのシマー。
+/* モデルピル: 上部中央の状態ボタン（クリックでモーダル）。story-graph のモデルバーに合わせる。
+   ロード済み=アクセントの薄塗り + 明るいアクセント枠 / 未ロード=グレー /
+   ロード中=枠が時計まわりに光るリング / 失敗=danger 枠。
    幅は内容に合わせて可変（短ければ小さく、長ければ広がって上限で省略） */
 .model-pill {
+  position: relative; /* ロード中リング（::after）の基準 */
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 30px;
   width: auto;
   min-width: 240px;
   max-width: min(440px, 38vw);
   padding: 0 12px;
-  border: 1px solid transparent;
+  background: var(--bar-surface);
+  color: var(--bar-text);
+  border: 1px solid var(--bar-border);
   border-radius: var(--radius-m);
   cursor: pointer;
   font-size: var(--fs-sm);
-  font-weight: 600;
-  transition: filter 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 /* 右のイジェクトボタン: ロード済みのときだけアクティブ */
@@ -593,7 +605,14 @@ select:focus-visible {
 .model-pill-caret {
   display: inline-flex;
   flex-shrink: 0;
-  opacity: 0.9;
+}
+
+.model-pill-icon {
+  color: var(--bar-faint);
+}
+
+.model-pill-caret {
+  color: var(--bar-faint);
 }
 
 .model-pill-text {
@@ -605,14 +624,19 @@ select:focus-visible {
   text-overflow: ellipsis;
 }
 
-/* ロード済み: キーカラー（アクセント紫）で塗る */
+/* ロード済み: アクセントの薄塗り + 明るいアクセント枠（遠目でも状態が分かる） */
 .model-pill.on {
-  background: var(--accent);
-  color: var(--accent-text);
+  background: var(--bar-accent-soft);
+  border-color: var(--bar-accent-border);
+  color: var(--bar-text);
+}
+
+.model-pill.on .model-pill-icon {
+  color: var(--bar-accent);
 }
 
 .model-pill.on:hover {
-  filter: brightness(1.08);
+  background: color-mix(in srgb, var(--bar-accent) 22%, var(--bar-surface));
 }
 
 /* 未ロード: 落ち着いたグレー */
@@ -626,25 +650,88 @@ select:focus-visible {
   color: var(--bar-text);
 }
 
-/* ロード中: 控えめなアクセントのシマー（紫は薄めに） */
-.model-pill.loading {
-  background: linear-gradient(
-    110deg,
-    color-mix(in srgb, var(--accent) 18%, var(--bar-surface)) 25%,
-    color-mix(in srgb, var(--accent) 45%, var(--bar-surface)) 50%,
-    color-mix(in srgb, var(--accent) 18%, var(--bar-surface)) 75%
-  );
-  background-size: 200% 100%;
-  color: var(--bar-text);
-  animation: pill-shimmer 1.4s linear infinite;
+/* 読み込み失敗 */
+.model-pill.error {
+  border-color: var(--bar-danger);
+  color: var(--bar-danger);
 }
 
-@keyframes pill-shimmer {
-  from {
-    background-position: 200% 0;
-  }
+.model-pill.error .model-pill-icon {
+  color: var(--bar-danger);
+}
+
+/* ロード中: 枠が時計まわりに光る（conic-gradient の角度をアニメーションさせるため、
+   @property で <angle> として宣言する。Chromium 前提）。
+   リングはピル枠の外側に描き、mask-composite でパディング分だけ残して枠線状にする。 */
+@property --pill-ring-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes pill-ring-spin {
   to {
-    background-position: -200% 0;
+    --pill-ring-angle: 360deg;
+  }
+}
+
+@keyframes pill-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.model-pill.loading {
+  background: var(--bar-surface);
+  color: var(--bar-text);
+  box-shadow: 0 0 10px 2px var(--bar-accent-glow);
+}
+
+.model-pill.loading .model-pill-icon {
+  color: var(--bar-accent);
+}
+
+.model-pill.loading::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--radius-m) + 3px);
+  padding: 2px; /* リングの太さ */
+  background: conic-gradient(
+    from var(--pill-ring-angle),
+    var(--bar-accent-ring-off) 0turn,
+    var(--bar-accent-ring-dim) 0.08turn,
+    var(--bar-accent-ring) 0.2turn,
+    var(--bar-accent-ring-dim) 0.32turn,
+    var(--bar-accent-ring-off) 0.42turn
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation:
+    pill-ring-spin 1.4s linear infinite,
+    pill-ring-pulse 1.4s ease-in-out infinite;
+}
+
+/* ピル内のスピナー（ロード中のアイコン） */
+.model-pill-spinner {
+  display: inline-flex;
+  animation: pill-spinner-spin 0.9s linear infinite;
+}
+
+@keyframes pill-spinner-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

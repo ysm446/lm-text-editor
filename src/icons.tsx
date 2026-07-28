@@ -65,6 +65,15 @@ export function CpuIcon({ size = 15 }: IconProps) {
   )
 }
 
+// 回転させて使うスピナー（回転は CSS 側 .model-pill-spinner 等で付ける）
+export function SpinnerIcon({ size = 14 }: IconProps) {
+  return (
+    <svg {...svgProps(size)} strokeWidth={2.2}>
+      <path d="M21 12a9 9 0 1 1-6.2-8.5" />
+    </svg>
+  )
+}
+
 export function TrashIcon({ size = 14 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

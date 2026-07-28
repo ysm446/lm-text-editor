@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type LlamaStatus, type LocalModel } from './api/client'
-import { ChevronDownIcon, CpuIcon, EjectIcon } from './icons'
+import { ChevronDownIcon, CpuIcon, EjectIcon, SpinnerIcon } from './icons'
 
 const POLL_MS = 3000
 
@@ -90,32 +90,47 @@ export default function ModelBar() {
   const loading = switching || st === 'loading'
   const ready = st === 'ready'
   const isActiveSelected = ready && status?.active_model_path === selected
+  // 起動失敗はモーダルを閉じた後に届くので、ピル自体でも知らせる
+  const hasError = !!error && !loading
 
   // ピルの状態クラスとラベル
-  const pillState = loading ? 'loading' : ready ? 'on' : 'off'
+  const pillState = loading ? 'loading' : hasError ? 'error' : ready ? 'on' : 'off'
   const label =
-    status == null
-      ? 'backend 未接続'
-      : loading
-        ? '起動中…'
-        : ready
-          ? status.active_model_path
-            ? `${fileName(status.active_model_path)}${status.external ? '（外部）' : ''}`
-            : status.external
-              ? '外部起動の LLM'
-              : 'LLM 稼働中'
-          : 'モデルをロードしてください'
+    loading
+      ? selected
+        ? `読み込み中… ${fileName(selected)}`
+        : '読み込み中…'
+      : hasError
+        ? '読み込み失敗'
+        : status == null
+          ? 'backend 未接続'
+          : ready
+            ? status.active_model_path
+              ? `${fileName(status.active_model_path)}${status.external ? '（外部）' : ''}`
+              : status.external
+                ? '外部起動の LLM'
+                : 'LLM 稼働中'
+            : 'モデルをロードしてください'
 
   return (
     <>
       <div className="model-pill-group">
         <button
           className={`model-pill ${pillState}`}
-          onClick={() => setModalOpen(true)}
-          title="クリックしてモデルを選択・ロード"
+          onClick={() => {
+            setError(null)
+            setModalOpen(true)
+          }}
+          title={hasError ? error! : 'クリックしてモデルを選択・ロード'}
         >
           <span className="model-pill-icon">
-            <CpuIcon size={15} />
+            {loading ? (
+              <span className="model-pill-spinner">
+                <SpinnerIcon size={14} />
+              </span>
+            ) : (
+              <CpuIcon size={15} />
+            )}
           </span>
           <span className="model-pill-text">{label}</span>
           <span className="model-pill-caret">
