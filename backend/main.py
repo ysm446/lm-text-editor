@@ -9,6 +9,7 @@ import binascii
 import json
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -183,6 +184,13 @@ class ChatRequest(BaseModel):
     use_web: bool = False  # 直近のユーザー発話で Web 検索し、スニペットを文脈に含める
 
 
+class SuggestQuestionsRequest(BaseModel):
+    """チャットの質問候補（候補チップ）の生成リクエスト。"""
+
+    document_md: str | None = None  # 編集中の文章（末尾を材料にする）
+    messages: list[ChatMessage] = []  # 直近のやりとり（あれば踏まえる）
+
+
 class NoteMergeRequest(BaseModel):
     content: str  # 既存ノートに統合したい新情報（Markdown）
 
@@ -230,6 +238,7 @@ class SettingsUpdate(BaseModel):
     context_length: int | None = None
     thinking_enabled: bool | None = None
     review_system_prompt: str | None = None
+    chat_dynamic_suggestions: bool | None = None
 
 
 @app.get("/settings")
@@ -659,6 +668,116 @@ async def generate_section(body: GenerateSectionRequest) -> StreamingResponse:
         ),
         media_type="text/plain; charset=utf-8",
     )
+
+
+SUGGEST_MAX = 3  # 返す候補の上限（UI の枠に合わせる）
+SUGGEST_HISTORY_TURNS = 4  # 直近 2 往復ぶんのメッセージ
+SUGGEST_MIN_LEN = 6
+SUGGEST_MAX_LEN = 60
+# 質問候補の形。llama.cpp の文法制約付き生成に渡す（前置きや箇条書き記号を防ぐ）
+SUGGEST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "questions": {
+            "type": "array",
+            "minItems": SUGGEST_MAX,
+            "maxItems": SUGGEST_MAX,
+            "items": {"type": "string"},
+        }
+    },
+    "required": ["questions"],
+}
+
+
+def _clean_question(line: str) -> str:
+    """行頭の箇条書き記号・番号・引用符を落とす。"""
+    q = line.strip().lstrip("-・*").strip()
+    return re.sub(r"^\d+[.)．、]\s*", "", q).strip(" 　\"'「」`")
+
+
+# 素のテキスト出力を拾うときの形チェック。「以下の3つです:」のような前置きを
+# 候補として並べてしまわないよう、疑問文 / 依頼文の終わり方だけを通す
+_QUESTION_TAIL_RE = re.compile(
+    r"(？|\?|(て|ください|ますか|ませんか|でしょうか|だろうか|ですか|べきか|よいか|いいか|か)[。．]?)$"
+)
+
+
+def _parse_suggested_questions(raw: str) -> list[str]:
+    """LLM の出力から質問候補を取り出す。
+
+    スキーマ付きで生成させた JSON を優先し、スキーマ非対応で素のテキストが
+    返ってきた場合は 1 行 1 問として拾う（どちらでも動くようにする）。
+    """
+    text = think_parser.strip_think(raw).strip()
+    candidates: list[str] = []
+    from_json = False
+    if text.startswith("{"):
+        try:
+            data = json.loads(text)
+            items = data.get("questions") if isinstance(data, dict) else None
+            if isinstance(items, list):
+                candidates = [str(q) for q in items]
+                from_json = True
+        except json.JSONDecodeError:
+            candidates = []
+    if not candidates:
+        candidates = text.splitlines()
+
+    out: list[str] = []
+    for line in candidates:
+        q = _clean_question(line)
+        if not (SUGGEST_MIN_LEN <= len(q) <= SUGGEST_MAX_LEN):
+            continue
+        # 行出力は前置きが混じるので形で絞る（JSON はスキーマで担保済み）
+        if not from_json and not _QUESTION_TAIL_RE.search(q):
+            continue
+        if q not in out:
+            out.append(q)
+    return out[:SUGGEST_MAX]
+
+
+@app.post("/chat/suggest_questions")
+async def suggest_questions(body: SuggestQuestionsRequest) -> dict[str, list[str]]:
+    """編集中の文章から質問候補（チャットの候補チップ）を最大 3 件作る。
+
+    候補は「無くても困らない」ものなので、設定 OFF / LLM 未起動 / 生成失敗は
+    すべて空配列を返す（UI は固定の定型質問だけになる）。候補生成のために
+    llama-server を起動しない（`_require_llm` は使わず is_alive を見るだけ）。
+    """
+    if not settings_store.read().get("chat_dynamic_suggestions", True):
+        return {"questions": []}
+    cfg = router.route("generate")
+    if not await llm_client.is_alive(cfg["base_url"]):
+        return {"questions": []}
+    if not (body.document_md or "").strip() and not body.messages:
+        return {"questions": []}  # 材料が無ければ作らない（空文書を開いた直後など）
+    recent = [
+        {"role": m.role, "content": m.content}
+        for m in body.messages[-SUGGEST_HISTORY_TURNS:]
+    ]
+    messages = prompts.build_question_suggest_messages(body.document_md, recent)
+
+    async def _generate(schema: dict[str, Any] | None) -> str:
+        return await llm_client.chat(
+            cfg["base_url"],
+            messages,
+            temperature=0.9,  # 毎回同じ候補にならないよう高めにする
+            max_tokens=llm_manager.max_tokens_for(256),
+            enable_thinking=False,
+            json_schema=schema,
+        )
+
+    try:
+        raw = await _generate(SUGGEST_SCHEMA)
+    except Exception as exc:
+        # response_format 非対応 / スキーマ変換エラーの可能性。素のテキストで 1 度だけ再試行
+        logger.info("question suggestion with schema failed (%s); retrying plain", exc)
+        try:
+            raw = await _generate(None)
+        except Exception as exc2:
+            logger.warning("question suggestion failed: %s", exc2)
+            return {"questions": []}
+    return {"questions": _parse_suggested_questions(raw)}
 
 
 @app.post("/chat")

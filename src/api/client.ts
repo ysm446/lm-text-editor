@@ -141,6 +141,7 @@ export interface AppSettings {
   context_length: number // llama-server の -c（次回起動時から反映）
   thinking_enabled: boolean // 思考モード（reasoning）。次回のモデル起動時から反映
   review_system_prompt: string // 校正のシステムプロンプト上書き（'' = 既定）
+  chat_dynamic_suggestions: boolean // チャットの質問候補を内容から生成する（既定 true）
 }
 
 export interface GpuStat {
@@ -303,6 +304,16 @@ export const api = {
     request<{ status: string }>('/llama/eject', { method: 'POST' }),
 
   promptDefaults: () => request<{ review_system: string }>('/prompts/defaults'),
+
+  // チャットの質問候補（内容ベース）。設定 OFF・LLM 未起動・生成失敗はすべて空配列
+  suggestQuestions: (body: {
+    document_md: string | null
+    messages: { role: string; content: string }[]
+  }) =>
+    request<{ questions: string[] }>('/chat/suggest_questions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   embedStatus: () => request<EmbedStatus>('/embed/status'),
 

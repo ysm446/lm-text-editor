@@ -6,14 +6,23 @@ import {
   type LlamaStatus,
   type LocalModel,
 } from '../api/client'
-import { BookIcon, PencilIcon, PromptIcon, SearchIcon, SunIcon, TrashIcon } from '../icons'
+import {
+  BookIcon,
+  PencilIcon,
+  PromptIcon,
+  SearchIcon,
+  SparkleIcon,
+  SunIcon,
+  TrashIcon,
+} from '../icons'
 
-type Category = 'appearance' | 'editor' | 'llm' | 'prompts' | 'websearch'
+type Category = 'appearance' | 'editor' | 'llm' | 'chat' | 'prompts' | 'websearch'
 
 const CATEGORIES: { key: Category; label: string; icon: ReactNode }[] = [
   { key: 'appearance', label: '外観', icon: <SunIcon /> },
   { key: 'editor', label: 'エディタ', icon: <PencilIcon size={14} /> },
   { key: 'llm', label: 'LLM', icon: <BookIcon size={14} /> },
+  { key: 'chat', label: 'チャット', icon: <SparkleIcon size={14} /> },
   { key: 'prompts', label: 'プロンプト', icon: <PromptIcon size={14} /> },
   { key: 'websearch', label: 'Web 検索', icon: <SearchIcon /> },
 ]
@@ -293,6 +302,36 @@ export default function SettingsModal({
                   )}
                 </section>
               </>
+            )}
+            {active === 'chat' && (
+              <section>
+                <h3>内容から質問候補を作る</h3>
+                <p className="settings-desc">
+                  チャットの入力欄の上に並ぶ質問候補のうち、最大 3 件を
+                  <strong>編集中の文章から LLM に作らせます</strong>
+                  （✨付きで表示。回答が終わるたびに会話を踏まえた候補へ差し替わります）。
+                  OFF にすると固定の定型質問だけになります。LLM が未起動のときや生成に
+                  失敗したときも定型質問だけになり、候補のためにモデルを起動することは
+                  ありません。
+                </p>
+                <label className="settings-switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.chat_dynamic_suggestions}
+                    onChange={(e) =>
+                      onChange({ chat_dynamic_suggestions: e.target.checked })
+                    }
+                  />
+                  <span className="settings-switch-track">
+                    <span className="settings-switch-knob" />
+                  </span>
+                  <span>
+                    {settings.chat_dynamic_suggestions
+                      ? 'ON（文章に合わせた質問を出す・既定）'
+                      : 'OFF（定型質問のみ）'}
+                  </span>
+                </label>
+              </section>
             )}
             {active === 'prompts' && (
               <section className="settings-prompt-section">

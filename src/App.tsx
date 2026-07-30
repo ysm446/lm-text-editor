@@ -536,6 +536,7 @@ export default function App() {
                   rightTab={rightTab}
                   onSetRightTab={setRightTab}
                   hasCustomReviewPrompt={Boolean(settings?.review_system_prompt?.trim())}
+                  dynamicSuggestions={settings?.chat_dynamic_suggestions !== false}
                   titleSlot={
                     <input
                       className="doc-title"

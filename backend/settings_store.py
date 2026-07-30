@@ -25,6 +25,9 @@ DEFAULTS: dict[str, Any] = {
     "thinking_enabled": False,
     # 校正のシステムプロンプト上書き（"" = 既定 prompts.REVIEW_SYSTEM を使う）
     "review_system_prompt": "",
+    # チャットの質問候補を編集中の文章から LLM に作らせる（既定 ON）。
+    # OFF なら固定の定型質問だけになる
+    "chat_dynamic_suggestions": True,
 }
 
 

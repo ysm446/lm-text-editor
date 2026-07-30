@@ -1,8 +1,27 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import MarkdownIt from 'markdown-it'
-import { BoltIcon, ClockIcon, PromptIcon } from '../icons'
+import { BoltIcon, ClockIcon, PromptIcon, SparkleIcon } from '../icons'
 import type { ChatSource } from '../api/client'
 import SaveChatNoteModal from './SaveChatNoteModal'
+
+// 定型質問（story-graph の TEMPLATES 相当）。校正・改善寄りと構成・企画寄りを混ぜ、
+// クリックだけで成立する文にしてある（入力欄を経由せずそのまま送る）。
+const TEMPLATES: string[] = [
+  'いま開いている文章をレビューして、直すべき点を挙げて。',
+  '冗長な表現・重複している説明を洗い出して。',
+  '読者がつまずきそうな箇所を挙げて、理由と直し方を教えて。',
+  '表記や用語がぶれているところを指摘して。',
+  '根拠が弱い主張・裏づけが必要な記述を指摘して。',
+  '全体の構成を診断して、順序を入れ替えるべき箇所を教えて。',
+  'この文章に足りていない節・説明を挙げて。',
+  '導入が読者を引き込めているか診断して、改善案を出して。',
+  'もっと面白くする切り口を3案提案して。',
+  'タイトル案を3つ出して。',
+  '想定読者と、その人に不足している前提知識を整理して。',
+  '要点を3行で要約して。',
+]
+const TEMPLATE_WINDOW = 5 // 同時に見せる件数（全部積むと縦を食う）
+const MAX_DYNAMIC = 3 // うち、内容から生成された質問に使う枠
 
 // 返答は Markdown で表示する。html:false で生 HTML はエスケープ（LLM 出力の安全側）。
 // リンククリックは Electron 側の will-navigate が外部ブラウザへ流す。
@@ -122,6 +141,7 @@ export interface ChatState {
 interface ChatPanelProps {
   chat: ChatState
   workspaceId: number // チャット→資料（ノート）保存に使う
+  suggestions?: string[] // 内容から生成された質問候補（空なら定型のみ）
   onSend: (text: string, useDoc: boolean, useRag: boolean, useWeb: boolean) => void
   onClear: () => void
   onClose: () => void
@@ -138,23 +158,43 @@ interface SaveTarget {
 export default function ChatPanel({
   chat,
   workspaceId,
+  suggestions = [],
   onSend,
   onClear,
   onClose,
   onRagChanged,
 }: ChatPanelProps) {
   const [input, setInput] = useState('')
+  // 定型質問の表示位置。⟳ で決まった順に巡回する（ランダムに入れ替えると
+  // 「さっきの質問」を探す手間が増えるため。story-graph と同じ方針）
+  const [templateOffset, setTemplateOffset] = useState(0)
   const [useDoc, setUseDoc] = useState(true) // 既定 ON（編集中の文章を文脈に含める）
   const [useRag, setUseRag] = useState(true) // 既定 ON（過去記事・資料を文脈に含める）
   const [useWeb, setUseWeb] = useState(false) // 既定 OFF（明示的に ON にしたときだけ検索）
   const [saveTarget, setSaveTarget] = useState<SaveTarget | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
+  // 候補チップ: 生成された質問（✨）を入力欄側=下に、固定の定型質問を上に積む。
+  // 生成が無い / 失敗したときは定型で枠を埋めるので、操作の入り口は変わらない
+  const dynamicShown = suggestions.slice(0, MAX_DYNAMIC)
+  const chips = [
+    ...Array.from(
+      { length: Math.max(TEMPLATE_WINDOW - dynamicShown.length, 0) },
+      (_, i) => ({
+        text: TEMPLATES[(templateOffset + i) % TEMPLATES.length],
+        dynamic: false,
+      }),
+    ),
+    ...dynamicShown.map((text) => ({ text, dynamic: true })),
+  ]
+  const chipsKey = chips.map((c) => c.text).join('\n')
+
   // 新しいトークン・メッセージが来たら末尾へスクロール
+  // （候補チップも会話の末尾にあるので、差し替わったときも下端へ寄せる）
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [chat.messages, chat.streaming])
+  }, [chat.messages, chat.streaming, chipsKey])
 
   const send = () => {
     const text = input.trim()
@@ -253,6 +293,33 @@ export default function ChatPanel({
           )
         })}
         {chat.error && <div className="diff-error">{chat.error}</div>}
+
+        {/* 候補チップ（会話の末尾に置き、会話と一緒にスクロールする。クリックで即送信）。
+            固定枠にすると、その高さぶん会話エリアが常に狭くなるため中に入れている */}
+        <div className="chat-suggest">
+          {chips.map((c) => (
+            <button
+              key={`${c.dynamic ? 'dyn' : 'fix'}:${c.text}`}
+              className={`chat-suggest-chip${c.dynamic ? ' dynamic' : ''}`}
+              disabled={chat.streaming}
+              title={c.dynamic ? `${c.text}（文章の内容から作られた質問）` : c.text}
+              onClick={() => onSend(c.text, useDoc, useRag, useWeb)}
+            >
+              {c.dynamic && <SparkleIcon size={11} />}
+              <span className="chat-suggest-label">{c.text}</span>
+            </button>
+          ))}
+          {/* 候補の入れ替え。チップの並びの延長なので入力欄ではなくここに置く */}
+          <button
+            className="chat-suggest-more"
+            title="ほかの候補を見る"
+            onClick={() =>
+              setTemplateOffset((v) => (v + TEMPLATE_WINDOW) % TEMPLATES.length)
+            }
+          >
+            ⟳ ほかの候補
+          </button>
+        </div>
       </div>
 
       <div className="chat-panel-input">

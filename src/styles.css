@@ -2091,6 +2091,73 @@ select:focus-visible {
   margin-left: 1px;
 }
 
+/* 質問候補チップ（会話の末尾＝入力欄の直上。右寄せで縦に積む。クリックで即送信）。
+   固定枠にすると会話エリアが常に狭くなるため、会話と一緒にスクロールさせる */
+.chat-suggest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.chat-suggest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.chat-suggest-chip:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.chat-suggest-chip:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 内容から生成された候補はアクセント枠 + ✨ で定型と区別する */
+.chat-suggest-chip.dynamic {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.chat-suggest-chip.dynamic svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.chat-suggest-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-suggest-more {
+  border: none;
+  background: none;
+  padding: 2px 8px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.chat-suggest-more:hover {
+  color: var(--muted);
+}
+
 /* 思考モード ON のときの思考（回答の上に折りたたみで置く。既定は閉じる） */
 .chat-think {
   font-size: var(--fs-sm);

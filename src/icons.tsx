@@ -131,6 +131,16 @@ export function ClockIcon({ size = 13 }: IconProps) {
   )
 }
 
+// 内容から生成されたもの（チャットの質問候補）を示す四芒星
+export function SparkleIcon({ size = 11 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.4L12 17l-1.9-5.6L4.5 10l5.6-1.4L12 3z" />
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z" />
+    </svg>
+  )
+}
+
 export function TableIcon({ size = 14 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

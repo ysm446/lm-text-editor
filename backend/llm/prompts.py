@@ -162,6 +162,51 @@ def build_chat_messages(
     return messages
 
 
+# 編集中の文章から質問候補を作る（チャットの候補チップ。story-graph の
+# chat_agent.suggest_questions 相当）。固定の定型質問と違い、この文章にしか
+# 当てはまらない質問を出させるのが狙い。
+QUESTION_SUGGEST_SYSTEM = (
+    "あなたは文章の編集者です。書き手が相談相手（あなた）に投げたくなる質問を作ります。\n"
+    "ルール:\n"
+    "- 1 行に 1 つ、3 つだけ出力する。番号・記号・前置き・説明は書かない。\n"
+    "- 各行は 40 字以内の日本語で、疑問文または依頼文にする。\n"
+    "- 文章に出てくる固有名詞・見出し・具体的な話題を使い、この文章にしか"
+    "当てはまらない内容にする。\n"
+    "- 一般論（「テーマは何ですか」など）や、すでに文章の中で答えが出ている"
+    "質問は避ける。\n"
+    "- 3 つは互いに違う切り口にする（不足している説明 / 構成 / 読者のつまずき / "
+    "根拠の弱さ など）。"
+)
+
+# 質問候補に渡す本文の長さ。全文を渡すと候補生成だけで時間を食うため末尾を優先する
+SUGGEST_DOC_CHARS = 3000
+
+
+def build_question_suggest_messages(
+    document_md: str | None, recent_exchanges: list[Message] | None = None
+) -> list[Message]:
+    """質問候補の生成用メッセージ（ツールなし・1 回きりの軽い呼び出し）。"""
+    parts: list[str] = []
+    doc = (document_md or "").strip()
+    if doc:
+        if len(doc) > SUGGEST_DOC_CHARS:
+            doc = "（前略）\n" + doc[-SUGGEST_DOC_CHARS:]
+        parts.append(f"## 編集中の文章\n{doc}")
+    if recent_exchanges:
+        convo = "\n".join(
+            f"{'書き手' if m['role'] == 'user' else 'あなた'}: {m['content']}"
+            for m in recent_exchanges
+        )
+        parts.append(
+            "## 直近のやりとり（これを踏まえた次の質問にする）\n" + convo
+        )
+    parts.append("上記をもとに、質問を 3 つ出してください。")
+    return [
+        {"role": "system", "content": QUESTION_SUGGEST_SYSTEM},
+        {"role": "user", "content": "\n\n".join(parts)},
+    ]
+
+
 def build_web_context(results: list[dict]) -> str:
     """Web 検索結果（title / url / snippet）をチャット文脈用のテキストに整形する。"""
     parts = []

@@ -42,6 +42,7 @@ interface EditorProps {
   onSetRightTab: (tab: RightTab) => void
   titleSlot?: ReactNode // タイトル入力（App が管理）。ツールバーと本文の間に表示する
   hasCustomReviewPrompt: boolean // カスタム校正プロンプト設定中は強さ・文体の2軸を無効化（排他）
+  dynamicSuggestions: boolean // チャットの質問候補を内容から生成する（設定）
 }
 
 interface ReviewState {
@@ -139,6 +140,7 @@ export default function Editor({
   onSetRightTab,
   titleSlot,
   hasCustomReviewPrompt,
+  dynamicSuggestions,
 }: EditorProps) {
   const editorRef = useRef<TipTapEditor | null>(null)
   const draftTimer = useRef<number | null>(null)
@@ -184,6 +186,8 @@ export default function Editor({
     streaming: false,
     error: null,
   })
+  // チャットの質問候補（内容ベース）。取れなければ空のまま = 定型質問だけになる
+  const [suggestions, setSuggestions] = useState<string[]>([])
 
   const getMarkdown = () =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -576,6 +580,30 @@ export default function Editor({
     onSetRightTab(null) // 挿入後はペインを閉じる
   }
 
+  // 内容ベースの質問候補を取り直す。設定 OFF・LLM 未起動・生成失敗のときは
+  // backend が空配列を返すので、UI は固定の定型質問のままになる（候補は
+  // 無くても困らないので、失敗は黙って諦める）
+  const refreshSuggestions = async (history: ChatMsg[]) => {
+    if (!dynamicSuggestions) return
+    try {
+      const res = await api.suggestQuestions({
+        document_md: getMarkdown() || null,
+        messages: history
+          .slice(-4)
+          .map((m) => ({ role: m.role, content: m.content })),
+      })
+      if (res.questions.length > 0) setSuggestions(res.questions)
+    } catch {
+      /* 候補が無くても操作の入り口は変わらない */
+    }
+  }
+
+  // チャットを開いたときに候補を取っておく（回答直後は sendChat 側で取り直す）
+  useEffect(() => {
+    if (rightTab === 'chat') void refreshSuggestions(chat.messages)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rightTab, dynamicSuggestions])
+
   // チャット: 本文（+ 選択範囲）を文脈にマルチターン対話する。
   // useDoc=false なら本文・選択範囲を送らない（本文と無関係な調べもの用。応答も速くなる）
   const sendChat = async (
@@ -666,6 +694,11 @@ export default function Editor({
       }
       setLast({ content: output.trim(), thinking: thinking.trim() || null, meta })
       setChat((c) => ({ ...c, streaming: false, context: context ?? c.context }))
+      // 会話を踏まえたフォローアップに候補を差し替える
+      void refreshSuggestions([
+        ...history,
+        { role: 'assistant', content: output.trim() },
+      ])
     } catch (e) {
       setChat((c) => ({
         ...c,
@@ -675,8 +708,10 @@ export default function Editor({
     }
   }
 
-  const chatClear = () =>
+  const chatClear = () => {
     setChat({ messages: [], streaming: false, error: null })
+    void refreshSuggestions([]) // 会話を捨てたので文章だけを材料に取り直す
+  }
 
   const acceptReview = () => {
     if (!review || review.status !== 'ready') return
@@ -867,6 +902,7 @@ export default function Editor({
           <ChatPanel
             chat={chat}
             workspaceId={workspaceId}
+            suggestions={suggestions}
             onSend={(text, useDoc, useRag, useWeb) =>
               void sendChat(text, useDoc, useRag, useWeb)
             }

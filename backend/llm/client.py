@@ -28,11 +28,15 @@ async def chat(
     max_tokens: int | None = None,
     timeout: float = 300.0,
     enable_thinking: bool | None = None,
+    json_schema: dict[str, Any] | None = None,
 ) -> str:
-    """非ストリーミングで content を返す（backend 内部処理用。ornith の要約など）。
+    """非ストリーミングで content を返す（backend 内部処理用。要約など）。
 
     enable_thinking=False で reasoning モデルの思考を無効化する
     （高頻度の要約タスク用。ornith は一言の回答にも思考 ~1000 トークンを使う）。
+    json_schema を渡すと llama.cpp の文法制約付き生成（response_format）で
+    その形の JSON を返させる。対応しないビルドでは HTTP エラーになるので、
+    呼び出し側でスキーマ無しの再試行を用意しておく。
     """
     payload: dict[str, Any] = {
         "model": "local",
@@ -44,6 +48,8 @@ async def chat(
         payload["max_tokens"] = max_tokens
     if enable_thinking is not None:
         payload["chat_template_kwargs"] = {"enable_thinking": enable_thinking}
+    if json_schema is not None:
+        payload["response_format"] = {"type": "json_object", "schema": json_schema}
     async with httpx.AsyncClient(timeout=timeout) as client:
         res = await client.post(f"{base_url}/chat/completions", json=payload)
         res.raise_for_status()
