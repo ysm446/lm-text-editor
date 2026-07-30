@@ -17,6 +17,7 @@ import httpx
 
 from backend import paths, router
 from backend.llm import client as llm_client
+from backend.llm import manager as llm_manager
 from backend.llm import think_parser
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,9 @@ async def decompose_query(query: str) -> list[str]:
                 {"role": "user", "content": query},
             ],
             temperature=0.3,
-            max_tokens=256,
+            # enable_thinking はテンプレート次第で効かない（起動引数が優先される）ため、
+            # 思考モード ON のときは思考ぶんの猶予を足しておく
+            max_tokens=llm_manager.max_tokens_for(256),
             enable_thinking=False,
         )
         lines = [

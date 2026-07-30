@@ -29,6 +29,10 @@ MODELS_DIR = ROOT_DIR / "models"
 CONTEXT_LENGTHS = [4096, 8192, 16384, 32768, 65536, 131072, 262144]
 DEFAULT_CONTEXT_LENGTH = 16384
 
+# 思考モード ON のとき max_tokens に足す猶予。思考が本文ぶんの上限を食い潰して
+# content が空になるのを防ぐ（CLAUDE.md の reasoning-budget の教訓と同じ話）
+THINK_HEADROOM = 4096
+
 
 def _context_length() -> int:
     """設定のコンテキスト長を許可値にスナップして返す。"""
@@ -37,6 +41,30 @@ def _context_length() -> int:
     except (TypeError, ValueError):
         return DEFAULT_CONTEXT_LENGTH
     return n if n in CONTEXT_LENGTHS else DEFAULT_CONTEXT_LENGTH
+
+
+def thinking_enabled() -> bool:
+    """設定の思考モード（reasoning）。llama-server 起動時の引数に反映する。"""
+    return bool(settings_store.read().get("thinking_enabled"))
+
+
+def max_tokens_for(base: int) -> int:
+    """思考モードなら思考ぶんの猶予を足した max_tokens を返す。"""
+    return base + THINK_HEADROOM if thinking_enabled() else base
+
+
+def _reasoning_args(thinking: bool) -> list[str]:
+    """思考モードに対応する llama-server の引数。
+
+    Gemma 4 のテンプレートは `enable_thinking` で思考の有無が決まり、llama.cpp は
+    `--reasoning-budget 0` / `--reasoning off` からその値を作る。リクエスト側の
+    `chat_template_kwargs` では上書きできない（実測）ため、起動引数で決める。
+    ON のときは思考を content ではなく `reasoning_content` に分離させる
+    （本文・校正結果に思考が混ざらないようにする）。
+    """
+    if thinking:
+        return ["--reasoning", "on", "--reasoning-format", "deepseek"]
+    return ["--reasoning-budget", "0"]
 
 
 def resolve_slot_model(slot: str) -> Path | None:
@@ -55,9 +83,8 @@ def _port_of(base_url: str) -> int:
 SLOTS: dict[str, dict[str, Any]] = {
     "gemma": {
         "port": _port_of(config.GEMMA_BASE_URL),
-        # Gemma 4 は reasoning モデルのため --reasoning-budget 0 必須（CLAUDE.md 参照）。
-        # -c（コンテキスト長）は設定値を start() で付与する
-        "args": ["-ngl", "99", "--jinja", "--reasoning-budget", "0"],
+        # -c（コンテキスト長）と思考モードの引数は設定値から start() で付与する
+        "args": ["-ngl", "99", "--jinja"],
     },
 }
 
@@ -206,6 +233,7 @@ def get_status(slot: str) -> dict[str, Any]:
             if pid:  # クラッシュ等で消えた stale PID を掃除
                 slot_state["pid"] = None
                 slot_state["active_model_path"] = None
+                slot_state["thinking"] = None
                 state[slot] = slot_state
                 _save_state(state)
     else:
@@ -216,10 +244,14 @@ def get_status(slot: str) -> dict[str, Any]:
     # 外部起動サーバは state にパスが無いので、稼働中のモデルを直接問い合わせて表示に使う
     if external and not active:
         active = _query_loaded_model(spec["port"])
+    # 稼働中サーバの思考モード。外部起動 / 停止中は不明（None）
+    running_thinking = slot_state.get("thinking") if (tracked and status != "stopped") else None
     return {
         "status": status,  # 'stopped' | 'loading' | 'ready'
         "active_model_path": active,
         "external": external,
+        "thinking": running_thinking if isinstance(running_thinking, bool) else None,
+        "settings_thinking": thinking_enabled(),
     }
 
 
@@ -245,6 +277,7 @@ def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
         _stop_on_port(spec["port"])
     time.sleep(1)
 
+    thinking = thinking_enabled()
     cmd = [
         str(LLAMA_EXE),
         "-m", str(p),
@@ -252,6 +285,7 @@ def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
         "--port", str(spec["port"]),
         "-c", str(_context_length()),
         *spec["args"],
+        *_reasoning_args(thinking),
     ]
     mmproj = next(
         (c for c in p.parent.glob("*.gguf") if "mmproj" in c.name.lower()), None
@@ -274,9 +308,15 @@ def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
         )
 
     state = _load_state()
-    state[slot] = {"pid": proc.pid, "active_model_path": str(p)}
+    # thinking は「今動いているサーバがどちらで起動されたか」の記録（設定変更後に
+    # 再起動が必要かを UI で知らせるために使う）
+    state[slot] = {
+        "pid": proc.pid,
+        "active_model_path": str(p),
+        "thinking": thinking,
+    }
     _save_state(state)
-    return {"status": "loading", "active_model_path": str(p)}
+    return {"status": "loading", "active_model_path": str(p), "thinking": thinking}
 
 
 def stop(slot: str) -> dict[str, Any]:
@@ -284,7 +324,7 @@ def stop(slot: str) -> dict[str, Any]:
     # 追跡が切れて居残った / 外部起動の llama-server もアプリから停止できるようにする
     _stop_on_port(SLOTS[slot]["port"])
     state = _load_state()
-    state[slot] = {"pid": None, "active_model_path": None}
+    state[slot] = {"pid": None, "active_model_path": None, "thinking": None}
     _save_state(state)
     return {"status": "stopped"}
 

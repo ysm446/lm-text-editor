@@ -228,6 +228,7 @@ class SettingsUpdate(BaseModel):
     tavily_api_key: str | None = None
     writing_model_path: str | None = None
     context_length: int | None = None
+    thinking_enabled: bool | None = None
     review_system_prompt: str | None = None
 
 
@@ -586,7 +587,7 @@ async def merge_note_endpoint(note_id: int, body: NoteMergeRequest) -> dict[str,
         cfg["base_url"],
         prompts.build_note_merge_messages(note["title"], note["content"], body.content),
         temperature=0.3,
-        max_tokens=4096,
+        max_tokens=llm_manager.max_tokens_for(4096),
     )
     merged = think_parser.strip_think(raw)
     if not merged.strip():
@@ -617,7 +618,10 @@ async def generate_continue(body: GenerateContinueRequest) -> StreamingResponse:
     messages = prompts.build_continue_messages(body.before, body.after)
     return StreamingResponse(
         llm_client.stream_chat(
-            cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=1024
+            cfg["base_url"],
+            messages,
+            temperature=cfg["temperature"],
+            max_tokens=llm_manager.max_tokens_for(1024),
         ),
         media_type="text/plain; charset=utf-8",
     )
@@ -648,7 +652,10 @@ async def generate_section(body: GenerateSectionRequest) -> StreamingResponse:
     )
     return StreamingResponse(
         llm_client.stream_chat(
-            cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=2048
+            cfg["base_url"],
+            messages,
+            temperature=cfg["temperature"],
+            max_tokens=llm_manager.max_tokens_for(2048),
         ),
         media_type="text/plain; charset=utf-8",
     )
@@ -704,7 +711,10 @@ async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
     async def gen():
         """Web 検索を使った場合はまず出典（{"sources": ...}）を 1 行流し、
         本文差分（{"delta": ...}）を逐次、最後に生成統計を
-        {"done": true, tokens, elapsed, tps, finish_reason} で 1 行返す。"""
+        {"done": true, tokens, elapsed, tps, finish_reason} で 1 行返す。
+
+        思考モード ON のときは、回答前の思考を {"thinking": ...} で流す
+        （フロントは折りたたみで表示する）。"""
         if body.use_web:
             yield json.dumps(
                 {
@@ -719,21 +729,44 @@ async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
         finish_reason: str | None = None
         usage: dict[str, Any] | None = None
         timings: dict[str, Any] | None = None
+        think_filter = think_parser.ThinkFilter()
         try:
             async for chunk in llm_client.stream_chat_events(
-                cfg["base_url"], messages, temperature=cfg["temperature"], max_tokens=2048
+                cfg["base_url"],
+                messages,
+                temperature=cfg["temperature"],
+                max_tokens=llm_manager.max_tokens_for(2048),
             ):
                 choices = chunk.get("choices") or []
                 if choices:
-                    delta = choices[0].get("delta", {}).get("content")
-                    if delta:
-                        yield json.dumps({"delta": delta}, ensure_ascii=False) + "\n"
+                    delta = choices[0].get("delta", {})
+                    # reasoning_format=deepseek のとき思考はここに分離されて来る
+                    reasoning = delta.get("reasoning_content")
+                    if reasoning:
+                        yield json.dumps(
+                            {"thinking": reasoning}, ensure_ascii=False
+                        ) + "\n"
+                    content = delta.get("content")
+                    if content:
+                        # 分離されず content に思考が混ざるモデル向けの保険
+                        text, thought = think_filter.feed_split(content)
+                        if thought:
+                            yield json.dumps(
+                                {"thinking": thought}, ensure_ascii=False
+                            ) + "\n"
+                        if text:
+                            yield json.dumps({"delta": text}, ensure_ascii=False) + "\n"
                     if choices[0].get("finish_reason"):
                         finish_reason = choices[0]["finish_reason"]
                 if chunk.get("usage"):
                     usage = chunk["usage"]
                 if chunk.get("timings"):
                     timings = chunk["timings"]
+            text, thought = think_filter.flush()  # 保留していた末尾を吐き出す
+            if thought:
+                yield json.dumps({"thinking": thought}, ensure_ascii=False) + "\n"
+            if text:
+                yield json.dumps({"delta": text}, ensure_ascii=False) + "\n"
         except Exception as exc:
             # ストリーム開始後は HTTP エラーを返せないため、エラーも NDJSON の 1 行で
             # 返す（黙って切断するとフロントには "network error" しか見えない）

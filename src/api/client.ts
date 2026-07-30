@@ -139,6 +139,7 @@ export interface AppSettings {
   tavily_api_key: string
   writing_model_path: string // 文章用 LLM（'' = 未設定）。検索・要約もこのモデルを使う
   context_length: number // llama-server の -c（次回起動時から反映）
+  thinking_enabled: boolean // 思考モード（reasoning）。次回のモデル起動時から反映
   review_system_prompt: string // 校正のシステムプロンプト上書き（'' = 既定）
 }
 
@@ -168,6 +169,8 @@ export interface LlamaStatus {
   status: 'stopped' | 'loading' | 'ready'
   active_model_path: string | null
   external: boolean
+  thinking: boolean | null // 稼働中サーバの思考モード（外部起動 / 停止中は null）
+  settings_thinking: boolean // 設定側の思考モード（不一致なら再起動が必要）
 }
 
 export interface EmbedStatus {

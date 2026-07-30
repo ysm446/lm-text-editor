@@ -608,6 +608,7 @@ export default function Editor({
       // /chat は NDJSON: use_web なら先頭に {"sources": [...]}、
       // {"delta": "..."} を逐次、最後に {"done": true, ...統計}
       let output = ''
+      let thinking = ''
       let buffer = ''
       let meta: ChatMeta | null = null
       let context: { used: number; limit: number } | null = null
@@ -627,6 +628,7 @@ export default function Editor({
           if (!line.trim()) continue
           const obj = JSON.parse(line) as {
             delta?: string
+            thinking?: string // 思考モード ON のときの思考（折りたたみ表示）
             sources?: { title: string; url: string }[]
             error?: string
             done?: boolean
@@ -644,6 +646,9 @@ export default function Editor({
           if (obj.delta) {
             output += obj.delta
             setLast({ content: output })
+          } else if (obj.thinking) {
+            thinking += obj.thinking
+            setLast({ thinking })
           } else if (obj.sources) {
             setLast({ sources: obj.sources })
           } else if (obj.done) {
@@ -659,7 +664,7 @@ export default function Editor({
           }
         }
       }
-      setLast({ content: output.trim(), meta })
+      setLast({ content: output.trim(), thinking: thinking.trim() || null, meta })
       setChat((c) => ({ ...c, streaming: false, context: context ?? c.context }))
     } catch (e) {
       setChat((c) => ({

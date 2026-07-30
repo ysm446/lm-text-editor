@@ -1,13 +1,20 @@
 # progress.md — 進捗
 
 作成日時: 2026-07-07 07:09
-更新日時: 2026-07-13 04:10
+更新日時: 2026-07-30 18:35
 
 ## 現在の状態
 
 **フェーズ 4（Web 検索）実装完了**。spec の主要 5 フェーズ+フェーズ 6 のうち、残るはフェーズ 5（仕上げ: 出典管理・設定画面・Markdown 書き出し・マルチモーダル）と過去記事の実データ投入。
 
 ## 完了済み
+
+- 2026-07-30 思考モード（reasoning）のオン/オフ設定（ユーザー要望）:
+  - 設定 > LLM に「思考モード」トグル（`settings_store` の `thinking_enabled`・既定 False）。`manager._reasoning_args()` が起動引数を作る（OFF: `--reasoning-budget 0` / ON: `--reasoning on --reasoning-format deepseek`）。
+  - **実測**: 稼働中サーバへの `chat_template_kwargs.enable_thinking` / リクエストの `reasoning_budget` では上書きできない（起動引数が優先）。Gemma 4 のテンプレートは `enable_thinking` 未指定時に空の thought チャンネル（`<|channel>thought\n<channel|>`）を先出しして思考を飛ばす仕組みで、llama.cpp はこの値を `--reasoning-budget` / `--reasoning` から作る。よって設定変更はモデル再起動で反映（`/llama/status` に `thinking` / `settings_thinking` を追加し、食い違いを設定画面で警告）。
+  - 思考ぶんのトークン猶予: `manager.max_tokens_for()`（+4096）を執筆・チャット・要約・ノート統合の max_tokens に適用（思考が上限を食って content が空になるのを防ぐ）。
+  - 思考が本文へ混ざらないよう二重化: 起動引数で `reasoning_content` に分離 + `think_parser.ThinkFilter`（ストリーム用の増分フィルタ。`<think>` と Gemma の `<|channel>thought … <channel|>` 両対応・チャンク境界で分断されたタグも処理）を `stream_chat` と `/chat` に適用。チャットは思考を `{"thinking": ...}` で流し、返答の上に折りたたみ表示（`.chat-think`）。
+  - 検証: `npm run build` 通過 / `py_compile` OK / 一時 machine root のインプロセステスト（設定往復・起動引数・max_tokens 猶予・status の形・`/chat` NDJSON で思考と本文が分離・`stream_chat` が思考を通さない・タグ分断ケース）通過。**実 LLM を思考 ON で起動しての目視は未実施**（ユーザーが :8080 のモデルを使用中のため再起動を避けた）。
 
 - 2026-07-13 Markdown エディタ本文のコピーを `text/plain` のみに変更。同じエディタへ語句・フレーズを貼り戻した際、HTML の段落構造に由来する余分な前後空白が入らないようにした。
 

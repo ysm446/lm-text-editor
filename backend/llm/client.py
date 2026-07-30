@@ -5,6 +5,8 @@ from typing import Any, AsyncIterator
 
 import httpx
 
+from backend.llm import think_parser
+
 Message = dict[str, Any]  # {"role": ..., "content": ...}
 
 
@@ -71,7 +73,12 @@ async def stream_chat(
     temperature: float = 0.7,
     max_tokens: int | None = None,
 ) -> AsyncIterator[str]:
-    """chat/completions を stream=True で叩き、content の差分だけを順に返す。"""
+    """chat/completions を stream=True で叩き、content の差分だけを順に返す。
+
+    思考モード ON のとき、思考は `delta.reasoning_content` に分離される（無視する）。
+    分離されず content に混ざってくるモデルもあるため ThinkFilter でも落とす
+    （校正・執筆の出力はそのまま本文に入るので、思考を絶対に混ぜない）。
+    """
     payload: dict[str, Any] = {
         "model": "local",  # llama.cpp はロード済みモデルを使うため名前は任意
         "messages": messages,
@@ -81,6 +88,7 @@ async def stream_chat(
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
 
+    think_filter = think_parser.ThinkFilter()
     async with httpx.AsyncClient(timeout=httpx.Timeout(None, connect=10.0)) as client:
         async with client.stream(
             "POST", f"{base_url}/chat/completions", json=payload
@@ -98,7 +106,12 @@ async def stream_chat(
                     continue
                 delta = choices[0].get("delta", {}).get("content")
                 if delta:
-                    yield delta
+                    body = think_filter.feed(delta)
+                    if body:
+                        yield body
+            body, _ = think_filter.flush()  # 保留していた末尾を吐き出す
+            if body:
+                yield body
 
 
 async def stream_chat_events(

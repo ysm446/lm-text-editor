@@ -18,6 +18,7 @@ export interface ChatMeta {
 export interface ChatMsg {
   role: 'user' | 'assistant'
   content: string
+  thinking?: string | null // 思考モード ON のときの思考（折りたたみで表示）
   meta?: ChatMeta | null // assistant 返答の生成統計（完了後に付く）
   sources?: ChatSource[] | null // Web 検索の出典（use_web のとき）
 }
@@ -197,6 +198,15 @@ export default function ChatPanel({
           const streamingThis = chat.streaming && isLast && m.role === 'assistant'
           return (
             <div key={i} className={`chat-msg chat-msg-${m.role}`}>
+              {/* 思考モード ON のとき: 回答前の思考。思考中だけ自動で開く */}
+              {m.role === 'assistant' && m.thinking && (
+                <details className="chat-think" open={streamingThis && !m.content}>
+                  <summary>
+                    {streamingThis && !m.content ? '思考中…' : '思考を表示'}
+                  </summary>
+                  <div className="chat-think-body">{m.thinking}</div>
+                </details>
+              )}
               {m.role === 'assistant' ? (
                 <div className="chat-msg-body chat-md">
                   <div dangerouslySetInnerHTML={{ __html: md.render(m.content) }} />

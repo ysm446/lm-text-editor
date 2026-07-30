@@ -1,5 +1,11 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { api, type AppSettings, type EmbedStatus, type LocalModel } from '../api/client'
+import {
+  api,
+  type AppSettings,
+  type EmbedStatus,
+  type LlamaStatus,
+  type LocalModel,
+} from '../api/client'
 import { BookIcon, PencilIcon, PromptIcon, SearchIcon, SunIcon, TrashIcon } from '../icons'
 
 type Category = 'appearance' | 'editor' | 'llm' | 'prompts' | 'websearch'
@@ -48,6 +54,8 @@ export default function SettingsModal({
   const [tavilyDraft, setTavilyDraft] = useState(settings.tavily_api_key)
   const [models, setModels] = useState<LocalModel[]>([])
   const [embed, setEmbed] = useState<EmbedStatus | null>(null)
+  // 稼働中の LLM の状態（思考モードの設定変更に再起動が必要かの判定に使う）
+  const [llama, setLlama] = useState<LlamaStatus | null>(null)
   // 校正プロンプト: 既定値と編集中ドラフト（空設定のときは既定を表示して編集させる）
   const [reviewDefault, setReviewDefault] = useState('')
   const [reviewDraft, setReviewDraft] = useState(settings.review_system_prompt)
@@ -55,6 +63,7 @@ export default function SettingsModal({
   useEffect(() => {
     void api.listLocalModels().then(setModels).catch(() => setModels([]))
     void api.embedStatus().then(setEmbed).catch(() => setEmbed(null))
+    void api.llamaStatus().then(setLlama).catch(() => setLlama(null))
     void api
       .promptDefaults()
       .then((d) => {
@@ -170,6 +179,39 @@ export default function SettingsModal({
                       </option>
                     ))}
                   </select>
+                </section>
+                <section>
+                  <h3>思考モード（reasoning）</h3>
+                  <p className="settings-desc">
+                    ON にすると、モデルが答える前に考えます（思考は本文には入らず、チャットでは
+                    折りたたんで確認できます）。指示の込んだ校正や相談の精度は上がりますが、
+                    最初の出力までの待ち時間が伸び、思考ぶんのトークンも消費します。
+                    llama-server の起動引数で決まるため、<strong>変更は次回のモデル起動時から反映</strong>
+                    されます。
+                  </p>
+                  <label className="settings-switch">
+                    <input
+                      type="checkbox"
+                      checked={settings.thinking_enabled}
+                      onChange={(e) => onChange({ thinking_enabled: e.target.checked })}
+                    />
+                    <span className="settings-switch-track">
+                      <span className="settings-switch-knob" />
+                    </span>
+                    <span>
+                      {settings.thinking_enabled
+                        ? 'ON（考えてから書く）'
+                        : 'OFF（すぐ書く・既定）'}
+                    </span>
+                  </label>
+                  {llama != null &&
+                    llama.thinking != null &&
+                    llama.thinking !== settings.thinking_enabled && (
+                      <p className="settings-embed-status warn">
+                        稼働中のモデルは思考モード{llama.thinking ? ' ON' : ' OFF'}
+                        で起動しています。反映するにはモデルバーから再起動してください。
+                      </p>
+                    )}
                 </section>
                 <section>
                   <h3>コンテキスト長</h3>

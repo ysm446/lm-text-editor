@@ -1,6 +1,9 @@
 @echo off
 rem lm-text-editor LLM server launcher (single LLM, port 8080)
 rem NOTE: keep this file ASCII-only (cmd parses .bat with the system codepage)
+rem NOTE: thinking is OFF here (--reasoning-budget 0). The in-app thinking mode
+rem       setting (Settings > LLM) only applies when the app starts the server.
+rem       For thinking ON via this script: --reasoning on --reasoning-format deepseek
 
 cd /d "%~dp0"
 

@@ -11,6 +11,7 @@ from typing import Any
 
 from backend import router
 from backend.llm import client as llm_client
+from backend.llm import manager as llm_manager
 from backend.llm import think_parser
 from backend.rag import store as rag_store
 from backend.websearch.extract import fetch_and_extract
@@ -45,7 +46,8 @@ async def summarize(text: str, title: str) -> str | None:
                 },
             ],
             temperature=0.3,
-            max_tokens=600,
+            # 思考モード ON のときは思考ぶんの猶予を足す（要約が空になるのを防ぐ）
+            max_tokens=llm_manager.max_tokens_for(600),
             enable_thinking=False,
         )
         summary = think_parser.strip_think(raw)
