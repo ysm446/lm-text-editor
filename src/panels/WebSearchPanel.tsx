@@ -78,6 +78,7 @@ export default function WebSearchPanel({ workspaceId, onClose }: WebSearchPanelP
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing) return // IME 変換確定の Enter で発火させない
               if (e.key === 'Enter') void runSearch()
             }}
             disabled={searching}

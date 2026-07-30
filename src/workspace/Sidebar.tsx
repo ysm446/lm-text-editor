@@ -66,6 +66,7 @@ function NameInput({ placeholder, onSubmit, onClose }: NameInputProps) {
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={(e) => {
+        if (e.nativeEvent.isComposing) return // IME 変換確定の Enter で発火させない
         if (e.key === 'Enter') submit()
         if (e.key === 'Escape') onClose()
       }}
@@ -161,6 +162,7 @@ function ItemRow({ label, selected, expanded, onSelect, onRename, onDelete }: It
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return // IME 変換確定の Enter で発火させない
             if (e.key === 'Enter') submitRename()
             if (e.key === 'Escape') setEditing(false)
           }}
@@ -257,6 +259,7 @@ function SourceRow({ source, selected, onView, onRename, onDelete }: SourceRowPr
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return // IME 変換確定の Enter で発火させない
             if (e.key === 'Enter') submitRename()
             if (e.key === 'Escape') setEditing(false)
           }}
@@ -368,6 +371,7 @@ function ImageRow({ image, onView, onRename, onDelete }: ImageRowProps) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return // IME 変換確定の Enter で発火させない
             if (e.key === 'Enter') submitRename()
             if (e.key === 'Escape') setEditing(false)
           }}

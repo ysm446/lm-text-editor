@@ -379,15 +379,16 @@ export default function App() {
   )
 
   const deleteImage = useCallback(
-    async (image: WorkspaceImage) => {
+    async (image: WorkspaceImage): Promise<boolean> => {
       if (
         !window.confirm(
           'この画像を削除しますか？\n本文に挿入済みの画像は表示されなくなります。',
         )
       )
-        return
+        return false
       await api.deleteAsset(image.id)
       void refreshWorkspaceAssets(currentWsId)
+      return true
     },
     [currentWsId, refreshWorkspaceAssets],
   )
@@ -415,7 +416,10 @@ export default function App() {
           canInsert={currentDoc != null}
           onInsert={() => insertImage(viewingImage)}
           onDelete={() => {
-            void deleteImage(viewingImage).then(() => setViewingImage(null))
+            // 確認をキャンセルしたときはライトボックスを閉じない
+            void deleteImage(viewingImage).then((deleted) => {
+              if (deleted) setViewingImage(null)
+            })
           }}
           onClose={() => setViewingImage(null)}
         />
@@ -544,6 +548,7 @@ export default function App() {
                       onChange={(e) => setTitleDraft(e.target.value)}
                       onBlur={() => void saveTitle()}
                       onKeyDown={(e) => {
+                        if (e.nativeEvent.isComposing) return // IME 変換確定の Enter で発火させない
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                       }}
                       placeholder="タイトル"

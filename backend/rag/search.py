@@ -39,7 +39,7 @@ def hybrid_search(
             fts_rows = conn.execute(
                 "SELECT rc.id AS chunk_id FROM rag_fts rf"
                 " JOIN rag_chunk rc ON rc.id = rf.chunk_id"
-                f" WHERE rf.chunk_text MATCH ? AND {scope_clause} LIMIT ?",
+                f" WHERE rf.chunk_text MATCH ? AND {scope_clause} ORDER BY rank LIMIT ?",
                 (safe_query, *scope_params, top_k * 4),
             ).fetchall()
             for rank, row in enumerate(fts_rows):
@@ -49,9 +49,10 @@ def hybrid_search(
             logger.debug("FTS5 search skipped: %s", exc)
 
         # ベクトル（スコープ内で距離を直接計算。グローバル KNN の取りこぼし回避）
-        qvec = embed_query(query)
-        vec_bytes = struct.pack(f"{len(qvec)}f", *qvec)
+        # 埋め込みモデル未インストール等で失敗しても FTS の結果だけで劣化継続する
         try:
+            qvec = embed_query(query)
+            vec_bytes = struct.pack(f"{len(qvec)}f", *qvec)
             vec_rows = conn.execute(
                 "SELECT rc.id AS chunk_id,"
                 " vec_distance_cosine(rv.embedding, ?) AS distance"
@@ -105,7 +106,7 @@ def search_notes(
             fts_rows = conn.execute(
                 "SELECT sn.id AS note_id FROM note_fts nf"
                 " JOIN source_note sn ON sn.id = nf.note_id"
-                f" WHERE nf.summary MATCH ? AND {scope_clause} LIMIT ?",
+                f" WHERE nf.summary MATCH ? AND {scope_clause} ORDER BY rank LIMIT ?",
                 (safe_query, *scope_params, top_k * 4),
             ).fetchall()
             for rank, row in enumerate(fts_rows):
@@ -114,9 +115,9 @@ def search_notes(
         except Exception as exc:
             logger.debug("note FTS5 search skipped: %s", exc)
 
-        qvec = embed_query(query)
-        vec_bytes = struct.pack(f"{len(qvec)}f", *qvec)
         try:
+            qvec = embed_query(query)
+            vec_bytes = struct.pack(f"{len(qvec)}f", *qvec)
             vec_rows = conn.execute(
                 "SELECT sn.id AS note_id,"
                 " vec_distance_cosine(nv.embedding, ?) AS distance"

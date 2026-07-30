@@ -222,7 +222,8 @@ def shutdown() -> dict[str, bool]:
 
     def _exit() -> None:
         try:
-            llm_manager.stop("gemma")
+            # 外部起動（bat 等）の llama-server は殺さない（takeover=False）
+            llm_manager.stop("gemma", takeover=False)
         finally:
             os._exit(0)
 
@@ -465,6 +466,9 @@ async def web_ingest_endpoint(body: WebIngestRequest) -> dict[str, Any]:
         return await web_ingest.ingest_url(body.url.strip(), body.workspace_id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        # 埋め込みモデル未インストール等。「取得に失敗」と誤報告しない
+        raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"取得に失敗しました: {exc}")
 
@@ -923,7 +927,7 @@ async def chat_endpoint(body: ChatRequest) -> StreamingResponse:
                 "tps": round(tps, 1) if tps else None,
                 "finish_reason": finish_reason,
                 "context_tokens": context_tokens,
-                "context_length": llm_manager._context_length(),
+                "context_length": llm_manager.running_context_length(),
             },
             ensure_ascii=False,
         ) + "\n"

@@ -222,12 +222,15 @@ export default function Editor({
     setSaveError(null)
     try {
       const contentJson = ed.getJSON()
+      // 先にドラフト退避を止める。await 中にデバウンスが発火すると、保存側の
+      // draft クリア（backend）より後に draft POST が着き、消したはずの
+      // ドラフトが復活して次回オープン時に復元バナーが誤表示される
+      if (draftTimer.current) window.clearTimeout(draftTimer.current)
+      pendingDraft.current = null
       await api.saveDoc(docId, {
         content_json: contentJson,
         content_md: getMarkdown(),
       })
-      if (draftTimer.current) window.clearTimeout(draftTimer.current)
-      pendingDraft.current = null
       savedContent.current = JSON.stringify(contentJson)
       wasDirty.current = false
       setDirty(false)
@@ -604,6 +607,10 @@ export default function Editor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rightTab, dynamicSuggestions])
 
+  // ストリーム中に「クリア」→ 新規送信されたとき、旧ストリームの残り delta が
+  // 新しい会話へ書き込まれないよう、送信ごとに世代を進めて古い書き込みを無視する
+  const chatGen = useRef(0)
+
   // チャット: 本文（+ 選択範囲）を文脈にマルチターン対話する。
   // useDoc=false なら本文・選択範囲を送らない（本文と無関係な調べもの用。応答も速くなる）
   const sendChat = async (
@@ -614,6 +621,7 @@ export default function Editor({
   ) => {
     const ed = editorRef.current
     if (!ed || chat.streaming) return
+    const gen = ++chatGen.current
     const { from, to } = ed.state.selection
     const selection =
       useDoc && from !== to ? ed.state.doc.textBetween(from, to, '\n') : null
@@ -625,13 +633,15 @@ export default function Editor({
       streaming: true,
       error: null,
     }))
-    const setLast = (patch: Partial<ChatMsg>) =>
+    const setLast = (patch: Partial<ChatMsg>) => {
+      if (chatGen.current !== gen) return // クリア後に届いた旧ストリームの書き込み
       setChat((c) => ({
         ...c,
         messages: c.messages.map((m, i) =>
           i === c.messages.length - 1 ? { ...m, ...patch } : m,
         ),
       }))
+    }
     try {
       // /chat は NDJSON: use_web なら先頭に {"sources": [...]}、
       // {"delta": "..."} を逐次、最後に {"done": true, ...統計}
@@ -693,6 +703,7 @@ export default function Editor({
         }
       }
       setLast({ content: output.trim(), thinking: thinking.trim() || null, meta })
+      if (chatGen.current !== gen) return
       setChat((c) => ({ ...c, streaming: false, context: context ?? c.context }))
       // 会話を踏まえたフォローアップに候補を差し替える
       void refreshSuggestions([
@@ -700,6 +711,7 @@ export default function Editor({
         { role: 'assistant', content: output.trim() },
       ])
     } catch (e) {
+      if (chatGen.current !== gen) return
       setChat((c) => ({
         ...c,
         streaming: false,
@@ -709,14 +721,29 @@ export default function Editor({
   }
 
   const chatClear = () => {
+    chatGen.current++ // 進行中ストリームの残りを無効化する
     setChat({ messages: [], streaming: false, error: null })
     void refreshSuggestions([]) // 会話を捨てたので文章だけを材料に取り直す
   }
 
   const acceptReview = () => {
     if (!review || review.status !== 'ready') return
-    editorRef.current
-      ?.chain()
+    const ed = editorRef.current
+    if (!ed) return
+    // 校正の開始〜採用の間に本文が編集されていると from/to がずれ、無関係な
+    // 範囲を上書きしてしまう。範囲の現在の本文が校正時と一致するときだけ適用する
+    let current: string | null = null
+    try {
+      current = ed.state.doc.textBetween(review.from, review.to, '\n')
+    } catch {
+      current = null // 文書が短くなり範囲自体が無効になった
+    }
+    if (current !== review.original) {
+      showToast('本文が編集されたため適用できません。もう一度校正してください')
+      setReview(null)
+      return
+    }
+    ed.chain()
       .focus()
       .insertContentAt({ from: review.from, to: review.to }, review.revised)
       .run()
@@ -868,6 +895,15 @@ export default function Editor({
           onLoadRevision={(json) => {
             const ed = editorRef.current
             if (!ed) return
+            // 未保存の編集が旧版で上書きされる（ドラフト退避も旧版内容で潰れる）ため確認する
+            if (
+              dirty &&
+              !window.confirm(
+                '未保存の変更があります。この版を読み込むと現在の編集内容は失われます。読み込みますか？',
+              )
+            ) {
+              return
+            }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ed.commands.setContent(json as any)
             updateDirty(ed)

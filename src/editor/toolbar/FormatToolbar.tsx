@@ -209,6 +209,7 @@ export default function FormatToolbar({ editor }: FormatToolbarProps) {
           value={linkUrl}
           onChange={(e) => setLinkUrl(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return // IME 変換確定の Enter で発火させない
             if (e.key === 'Enter') applyLink()
             if (e.key === 'Escape') setLinkOpen(false)
           }}

@@ -48,9 +48,32 @@ def thinking_enabled() -> bool:
     return bool(settings_store.read().get("thinking_enabled"))
 
 
+def _running_slot_state(slot: str = "gemma") -> dict[str, Any]:
+    return _load_state().get(slot) or {}
+
+
 def max_tokens_for(base: int) -> int:
-    """思考モードなら思考ぶんの猶予を足した max_tokens を返す。"""
-    return base + THINK_HEADROOM if thinking_enabled() else base
+    """思考モードなら思考ぶんの猶予を足した max_tokens を返す。
+
+    思考の有無は起動引数で決まりサーバ再起動まで変わらないため、設定値ではなく
+    「今動いているサーバがどちらで起動されたか」（state の記録）を優先する。
+    設定を OFF に変えた直後でも、稼働中サーバが思考 ON なら猶予を落とさない
+    （落とすと思考が max_tokens を食い潰して content が空になる）。
+    外部起動などで記録が無い場合は設定値にフォールバックする。
+    """
+    running = _running_slot_state().get("thinking")
+    thinking = running if isinstance(running, bool) else thinking_enabled()
+    return base + THINK_HEADROOM if thinking else base
+
+
+def running_context_length() -> int:
+    """稼働中サーバが実際に起動された -c 値（フロントの使用率ゲージの分母）。
+
+    設定変更後・未再起動のサーバでは設定値と実値が乖離するため state の記録を
+    優先し、外部起動などで記録が無い場合は設定値にフォールバックする。
+    """
+    ctx = _running_slot_state().get("context_length")
+    return ctx if isinstance(ctx, int) and ctx > 0 else _context_length()
 
 
 def _reasoning_args(thinking: bool) -> list[str]:
@@ -234,6 +257,7 @@ def get_status(slot: str) -> dict[str, Any]:
                 slot_state["pid"] = None
                 slot_state["active_model_path"] = None
                 slot_state["thinking"] = None
+                slot_state["context_length"] = None
                 state[slot] = slot_state
                 _save_state(state)
     else:
@@ -278,12 +302,13 @@ def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
     time.sleep(1)
 
     thinking = thinking_enabled()
+    context_length = _context_length()
     cmd = [
         str(LLAMA_EXE),
         "-m", str(p),
         "--host", "127.0.0.1",
         "--port", str(spec["port"]),
-        "-c", str(_context_length()),
+        "-c", str(context_length),
         *spec["args"],
         *_reasoning_args(thinking),
     ]
@@ -314,17 +339,30 @@ def start(slot: str, model_path: str | None = None) -> dict[str, Any]:
         "pid": proc.pid,
         "active_model_path": str(p),
         "thinking": thinking,
+        "context_length": context_length,
     }
     _save_state(state)
     return {"status": "loading", "active_model_path": str(p), "thinking": thinking}
 
 
-def stop(slot: str) -> dict[str, Any]:
+def stop(slot: str, takeover: bool = True) -> dict[str, Any]:
+    """スロットの llama-server を停止する。
+
+    takeover=True（UI からの明示アンロード）は、追跡が切れて居残った /
+    外部起動の llama-server も引き取って停止する。
+    takeover=False（アプリ終了時の後片付け等）は追跡中のサーバだけを止め、
+    外部起動（bat 等）のサーバには触らない。
+    """
     _kill_tracked(slot)
-    # 追跡が切れて居残った / 外部起動の llama-server もアプリから停止できるようにする
-    _stop_on_port(SLOTS[slot]["port"])
+    if takeover:
+        _stop_on_port(SLOTS[slot]["port"])
     state = _load_state()
-    state[slot] = {"pid": None, "active_model_path": None, "thinking": None}
+    state[slot] = {
+        "pid": None,
+        "active_model_path": None,
+        "thinking": None,
+        "context_length": None,
+    }
     _save_state(state)
     return {"status": "stopped"}
 

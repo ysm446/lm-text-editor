@@ -47,6 +47,7 @@ export default function AssistPanel({
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return // IME 変換確定の Enter で発火させない
             if (e.key === 'Enter' && instruction.trim() && !streaming) {
               onGenerateSection(instruction.trim(), useRag)
             }

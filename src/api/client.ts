@@ -209,6 +209,9 @@ export async function* streamText(
     if (done) break
     yield decoder.decode(value, { stream: true })
   }
+  // マルチバイト文字の途中でストリームが終わった場合の取りこぼしを吐き出す
+  const tail = decoder.decode()
+  if (tail) yield tail
 }
 
 export const api = {
