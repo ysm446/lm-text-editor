@@ -13,6 +13,12 @@ import path from 'node:path'
 // vite-plugin-electron が dev 時に設定する環境変数
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
+// assets/app-icon.png は Vite の本番ビルド時に dist/ 直下へコピーされる。
+// 開発時は assets/、本番時は dist/ を参照して同じアイコンを使う。
+const APP_ICON_PATH = VITE_DEV_SERVER_URL
+  ? path.join(__dirname, '..', 'assets', 'app-icon.png')
+  : path.join(__dirname, '..', 'dist', 'app-icon.png')
+
 let mainWindow: BrowserWindow | null = null
 
 // 画面右下に出すアクション通知（スクリーンショット保存など）。
@@ -257,6 +263,7 @@ function createWindow() {
     useContentSize: true, // コンテンツ領域を 1920x1080 にする（枠込みではなく）
     show: false, // 最初の描画が済むまで隠す（起動時の白画面防止）
     backgroundColor: initialBackgroundColor(),
+    icon: APP_ICON_PATH,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -332,6 +339,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Windows のタスクバーでウィンドウを正しくグループ化し、設定したアイコンを使う。
+  if (process.platform === 'win32') app.setAppUserModelId('lm-text-editor')
   Menu.setApplicationMenu(null) // File / Edit 等の既定メニューは使わない
 
   ipcMain.handle(
