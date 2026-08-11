@@ -36,7 +36,7 @@ SQLite + sqlite-vec + FTS5（RAG・文書・ワークスペース）
 - 埋め込みは Ruri、検索は hybrid（sqlite-vec ベクトル + FTS5 全文）固定。埋め込みモデルは完全オフラインで読み込む（`local_files_only=True`。HF に問い合わせない）。未インストール時は起動時ウォームアップをスキップし、設定 > LLM の「埋め込みモデル」から `install_async` で一度だけダウンロードする（`backend/rag/embed.py`）。
 - 文書の正は TipTap JSON（`content_json`）。Markdown は書き出し用の派生。
 - LangChain 等の重いフレームワークは使わない。RAG / Web 検索の発火はアプリ側が明示制御。
-- UI の見た目・新規コンポーネントは `docs/design/design-guidelines.md` に従う（色・寸法はトークン経由、外れる場合は先にガイドラインを更新）。
+- **UI に関わる変更は必ず `docs/design/style-guide.md`（UI スタイルガイド: 色・タイポ・余白・部品）に従う。** 新規コンポーネントだけでなく、既存画面の見た目・レイアウト・配色・余白の調整も対象。色・寸法・余白はトークン / 既定の段階から選び、ガイドから外れる場合は**先にスタイルガイドを更新してから**実装する。
 
 ## 作業開始時の確認
 

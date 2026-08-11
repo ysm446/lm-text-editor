@@ -12,7 +12,7 @@ from typing import Any
 from backend import paths
 
 DEFAULTS: dict[str, Any] = {
-    "theme": "dark",  # デザインはダークを基準に進める（docs/design/design-guidelines.md）
+    "theme": "dark",  # デザインはダークを基準に進める（docs/design/style-guide.md）
     "editor_font_size": 16,
     "tavily_api_key": "",
     # 文章用 LLM（:8080）の既定モデル（models/ 配下の絶対パス）。

@@ -114,6 +114,6 @@ runtime/        llama.cpp バイナリ（Git 管理外）
 
 - [docs/spec.md](docs/spec.md) — 詳細仕様
 - [docs/plan/](docs/plan/) — 目的（goals）・方針（plan）・進捗（progress）
-- [docs/design/design-guidelines.md](docs/design/design-guidelines.md) — UI デザインガイドライン
+- [docs/design/style-guide.md](docs/design/style-guide.md) — UI スタイルガイド（色・タイポ・余白・部品。UI 変更時は必読）
 - [docs/changelog.md](docs/changelog.md) — 変更履歴
 - [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md) — 開発エージェント向けガイド
